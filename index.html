@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Husky Production Hot List</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<style>
+/* Layout: plant-floor job board. One flat table, summary strip on top, controls in a single toolbar.
+   Status is carried by a left stripe + pill so it survives black-and-white printing. */
+:root{
+  --bg:#f3f4f6; --panel:#ffffff; --ink:#15181d; --muted:#5b6370; --line:#d6dae1; --line-strong:#9aa3b0;
+  --accent:#1f4e8c; --accent-ink:#ffffff;
+  --late:#c0262d; --late-bg:#fbe9ea; --late-ink:#7f1218;
+  --today:#b7791f; --today-bg:#fdf3dc; --today-ink:#6f4707;
+  --soon:#4a5b73; --soon-bg:#e9eef5;
+  --shipped-bg:#edf0f3;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121417; --panel:#1b1f25; --ink:#eef0f3; --muted:#a3abb7; --line:#2d333c; --line-strong:#4b5563;
+  --accent:#6ea3e6; --accent-ink:#0d1b2e;
+  --late:#f06a70; --late-bg:#3a1a1d; --late-ink:#ffd4d6;
+  --today:#e3a93c; --today-bg:#3a2d12; --today-ink:#ffe3a8;
+  --soon:#b7c3d4; --soon-bg:#242b35; --shipped-bg:#20252c; color-scheme:dark } }
+
+*{box-sizing:border-box}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.35;padding-inline:16px;padding-block:14px 32px;-webkit-font-smoothing:antialiased}
+.page{max-width:1500px;margin:0 auto}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+
+/* Header */
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px;margin-bottom:12px}
+.brand{display:flex;flex-direction:column;gap:2px}
+.eyebrow{font-family:var(--display);font-weight:600;text-transform:uppercase;letter-spacing:.12em;font-size:12px;color:var(--muted)}
+h1{font-family:var(--display);font-weight:700;font-size:34px;line-height:1;margin:0;letter-spacing:.01em;text-wrap:balance}
+.fresh{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.fresh .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.fresh .dot.ok{background:#2f9e5b}
+.fresh .dot.stale{background:var(--today)}
+.fresh .dot.bad{background:var(--late)}
+
+/* Summary strip */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.tile{background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--line-strong);padding:10px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile.late{border-left-color:var(--late)} .tile.today{border-left-color:var(--today)} .tile.soon{border-left-color:var(--soon)}
+.tile .lbl{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted);font-weight:600}
+.tile .big{font-family:var(--display);font-weight:700;font-size:38px;line-height:1}
+.tile .sub{font-size:13px;color:var(--muted)}
+
+/* Toolbar */
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:10px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.seg button{background:var(--panel);border:0;padding:7px 14px;font-weight:600;font-family:var(--display);font-size:16px;letter-spacing:.03em;text-transform:uppercase}
+.seg button+button{border-left:1px solid var(--line-strong)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.ctl{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.ctl select{background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:6px 8px}
+.btn{background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:7px 12px;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.quiet{border-color:transparent;background:transparent;color:var(--muted);font-weight:500}
+.btn:disabled{opacity:.5;cursor:default}
+.spacer{flex:1}
+.toggle{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.toggle input{width:16px;height:16px;accent-color:var(--accent)}
+.me{font-size:14px;color:var(--muted)} .me b{color:var(--ink)}
+
+/* Table */
+.wrap{background:var(--panel);border:1px solid var(--line);overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:900px}
+th{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:12.5px;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:2px solid var(--line-strong);white-space:nowrap;background:var(--panel);position:sticky;top:0;z-index:1}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr.job{cursor:pointer}
+tr.job:hover td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+tr.job.open td{border-bottom-color:transparent}
+td.stripe{width:6px;padding:0}
+tr.late td.stripe{background:var(--late)} tr.today td.stripe{background:var(--today)} tr.soon td.stripe{background:var(--soon)}
+tr.shipped td{color:var(--muted)} tr.shipped td.stripe{background:var(--line-strong)}
+td.r{text-align:right;white-space:nowrap}
+.job-num{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.01em;line-height:1}
+.job-num small{display:block;font-family:var(--body);font-weight:500;font-size:11px;color:var(--muted);letter-spacing:.06em;margin-top:2px}
+.pill{display:inline-block;font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:4px;border:1.5px solid currentColor;white-space:nowrap}
+.pill.late{color:var(--late-ink);background:var(--late-bg);border-color:var(--late)}
+.pill.today{color:var(--today-ink);background:var(--today-bg);border-color:var(--today)}
+.pill.soon{color:var(--soon);background:var(--soon-bg)}
+.pill.shipped{color:var(--muted);background:var(--shipped-bg);border-style:dashed}
+.loc{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.04em;text-transform:uppercase;border:1px solid var(--line-strong);border-radius:4px;padding:2px 7px;white-space:nowrap}
+.cust{font-weight:600}
+.owner-chip{display:inline-block;font-weight:600;font-size:13px;padding:2px 8px;border-radius:999px;background:var(--soon-bg);color:var(--ink)}
+.owner-chip.none{background:transparent;color:var(--muted);font-weight:400}
+.note-preview{font-size:13.5px;color:var(--ink);max-width:340px;min-width:0;display:inline-block}
+.note-preview .meta{color:var(--muted);font-size:12px}
+.note-preview .more{color:var(--accent);font-size:12px;font-weight:600}
+.caret{color:var(--muted);font-size:12px;padding-left:4px}
+th.print-only,td.print-only{display:none}
+
+/* Detail row */
+tr.detail td{background:color-mix(in srgb,var(--accent) 4%,var(--panel));padding:12px 14px 14px 22px;border-bottom:2px solid var(--line-strong)}
+.detail-grid{display:grid;grid-template-columns:minmax(220px,300px) minmax(0,1fr);gap:14px 28px}
+@media (max-width:760px){.detail-grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-size:12px;color:var(--muted);font-weight:600}
+.owner-pick{display:flex;flex-wrap:wrap;gap:6px}
+.owner-pick button{border:1px solid var(--line-strong);background:var(--panel);border-radius:999px;padding:5px 12px;font-weight:600;font-size:14px}
+.owner-pick button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.notes-list{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none}
+.notes-list li{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:7px 10px;background:var(--panel);border:1px solid var(--line);border-radius:6px;font-size:14px}
+.notes-list li .meta{color:var(--muted);font-size:12px;white-space:nowrap}
+.notes-list .empty{color:var(--muted);font-style:italic;border-style:dashed}
+.add-note{display:flex;gap:8px;margin-top:6px;flex-wrap:wrap}
+.add-note input{flex:1;min-width:200px;background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:8px 10px}
+.quick{display:flex;flex-wrap:wrap;gap:6px}
+.quick button{border:1px dashed var(--line-strong);background:transparent;border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted)}
+.ro-note{font-size:13px;color:var(--muted)}
+
+.empty-state{padding:44px 20px;text-align:center;color:var(--muted)}
+.empty-state b{display:block;font-family:var(--display);font-size:24px;color:var(--ink);font-weight:700;margin-bottom:4px}
+.foot{margin-top:10px;font-size:12.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 18px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:6px;font-size:14px;z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+
+/* Sign in */
+.gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px;z-index:100}
+.card{background:var(--panel);border:1px solid var(--line);border-top:6px solid var(--accent);padding:26px 26px 22px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:12px}
+.card h2{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-height:1}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.card input{background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:9px 10px;font-size:15px}
+.card .err{color:var(--late);font-size:13.5px;min-height:1.2em}
+.card .link{background:none;border:0;color:var(--accent);padding:0;font-size:13px;text-align:left;text-decoration:underline}
+
+/* TV mode */
+body.tv{padding:18px 28px;overflow:hidden}
+body.tv .page{max-width:none}
+body.tv .bar,body.tv .foot,body.tv .caret,body.tv tr.detail{display:none}
+body.tv .head{margin-bottom:8px} body.tv .strip{margin-bottom:8px}
+body.tv h1{font-size:54px} body.tv .eyebrow{font-size:16px} body.tv .fresh{font-size:20px}
+body.tv .tile .big{font-size:64px} body.tv .tile .lbl{font-size:16px} body.tv .tile .sub{font-size:18px}
+body.tv table{font-size:22px} body.tv th{font-size:17px} body.tv td{padding:14px 12px}
+body.tv .job-num{font-size:30px} body.tv .job-num small{font-size:14px}
+body.tv .pill{font-size:19px} body.tv .loc{font-size:18px}
+body.tv .note-preview{font-size:19px;max-width:460px} body.tv .note-preview .meta{font-size:15px}
+body.tv .owner-chip{font-size:18px}
+body.tv tr.job{cursor:default}
+body.tv .wrap{overflow:hidden}
+.tv-exit{position:fixed;top:10px;right:14px;opacity:0;font-size:13px;z-index:40;background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px;color:var(--muted);pointer-events:none}
+body.tv .tv-exit{opacity:.35;pointer-events:auto}
+body.tv .tv-exit:hover{opacity:1}
+@media (prefers-reduced-motion:no-preference){ tr.job td{transition:background .15s} }
+@media (max-width:640px){ h1{font-size:28px} .tile .big{font-size:30px} }
+
+/* Print: one landscape sheet, black and white safe, blank initials column */
+@media print{
+  @page{size:letter landscape;margin:.4in}
+  html,body{background:#fff;color:#000;padding:0;font-size:10.5pt}
+  .page{max-width:none}
+  .bar,.foot,.caret,tr.detail,.tv-exit,.gate,.toast,.tile.soon[hidden]{display:none!important}
+  .head{margin-bottom:6pt} h1{font-size:20pt} .strip{margin-bottom:8pt;grid-template-columns:repeat(4,1fr)}
+  .tile{border-color:#000;padding:4pt 8pt} .tile .big{font-size:18pt} .tile .lbl,.tile .sub{color:#333}
+  .wrap{border:0;overflow:visible} table{min-width:0;font-size:9.5pt}
+  th{position:static;color:#000;border-bottom:1.5pt solid #000;padding:4pt 5pt;font-size:8.5pt} td{padding:4pt 5pt;border-bottom:.5pt solid #777;color:#000}
+  tr.job{break-inside:avoid}
+  .pill{border:1pt solid #000;color:#000!important;background:#fff!important;font-size:8.5pt;padding:1pt 4pt}
+  .pill.late{background:#e6e6e6!important} .pill.today{background:#fff!important}
+  td.stripe{width:4pt} tr.late td.stripe{background:#000} tr.today td.stripe{background:#888} tr.soon td.stripe{background:#ccc} tr.shipped td.stripe{background:#eee}
+  .loc{border-color:#000;font-size:8.5pt} .job-num{font-size:12pt} .job-num small{color:#333}
+  .owner-chip{background:#eee;color:#000} .owner-chip.none{color:#666}
+  .note-preview{font-size:8.5pt;max-width:220pt} .note-preview .meta,.note-preview .more{color:#444}
+  th.print-only,td.print-only{display:table-cell;width:70pt;border-left:.5pt solid #777}
+  .print-note{display:block!important;font-size:8pt;color:#333;margin-top:6pt}
+}
+.print-note{display:none}
+</style>
+</head>
+<body>
+<div class="page">
+<header class="head">
+  <div class="brand">
+    <span class="eyebrow">Husky Labels · In Production</span>
+    <h1>Late &amp; Due Today Hot List</h1>
+  </div>
+  <div class="fresh"><span class="dot" id="freshDot"></span><span id="freshText">Loading jobs…</span></div>
+</header>
+
+<section class="strip" aria-label="Totals">
+  <div class="tile late"><span class="lbl">Overdue</span><span class="big num" id="tLateN">–</span><span class="sub num" id="tLateD">&nbsp;</span></div>
+  <div class="tile today"><span class="lbl">Due today</span><span class="big num" id="tTodayN">–</span><span class="sub num" id="tTodayD">&nbsp;</span></div>
+  <div class="tile soon" id="tileSoon" hidden><span class="lbl">Next 2 days</span><span class="big num" id="tSoonN">–</span><span class="sub num" id="tSoonD">&nbsp;</span></div>
+  <div class="tile"><span class="lbl">In production</span><span class="big num" id="tAllN">–</span><span class="sub" id="tAllD">open jobs on the floor</span></div>
+</section>
+
+<div class="bar" role="toolbar" aria-label="Views">
+  <div class="seg" id="viewSeg">
+    <button type="button" data-view="hot" aria-pressed="true">Hot list</button>
+    <button type="button" data-view="mine" aria-pressed="false">My jobs</button>
+    <button type="button" data-view="tv" aria-pressed="false">TV mode</button>
+  </div>
+  <label class="ctl" id="ownerFilterWrap" hidden>Show jobs for
+    <select id="ownerFilter"></select>
+  </label>
+  <label class="toggle"><input type="checkbox" id="soonToggle"> Include next 2 days</label>
+  <span class="spacer"></span>
+  <span class="me" id="meLabel"></span>
+  <button type="button" class="btn quiet" id="signOut">Sign out</button>
+  <button type="button" class="btn" id="refreshBtn" title="Re-read the board now">Refresh</button>
+  <button type="button" class="btn primary" id="printBtn" title="One landscape page with a blank initials column">Print sheet</button>
+</div>
+
+<div class="wrap">
+  <table id="grid">
+    <thead><tr>
+      <th class="stripe"></th><th>Job #</th><th>Location</th><th>Status</th><th>Customer</th><th>Rep</th><th>Ordered</th><th>Due</th><th class="r">Amount</th><th>Owner</th><th>Notes</th><th class="print-only">Initials / Done</th><th class="caret"></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <div class="empty-state" id="empty" hidden><b>Nothing late, nothing due.</b>The floor is clear for today.</div>
+</div>
+<p class="print-note" id="printNote"></p>
+<div class="foot">
+  <span>Overdue = due date before today. Due today = due date is today. Dates are plant time (Eastern).</span>
+  <span>Click a job to assign an owner or add a note. Jobs roll off automatically once they ship in SOS; notes stay saved.</span>
+</div>
+</div>
+<button type="button" class="tv-exit" id="tvExit">Exit TV mode (Esc)</button>
+
+<div class="gate" id="gate" hidden>
+  <form class="card" id="loginForm">
+    <h2>Husky Hot List</h2>
+    <p>Sign in with your Husky Labels login (same as the die library).</p>
+    <label>Email <input type="email" id="email" autocomplete="username" required></label>
+    <label>Password <input type="password" id="password" autocomplete="current-password" required></label>
+    <div class="err" id="loginErr"></div>
+    <button type="submit" class="btn primary" id="loginBtn">Sign in</button>
+    <button type="button" class="link" id="forgot">Forgot your password? Email me a reset link</button>
+  </form>
+  <form class="card" id="resetForm" hidden>
+    <h2>Set a new password</h2>
+    <label>New password <input type="password" id="newPassword" autocomplete="new-password" minlength="8" required></label>
+    <div class="err" id="resetErr"></div>
+    <button type="submit" class="btn primary">Save password</button>
+  </form>
+</div>
+
+<script>
+(() => {
+  const SUPABASE_URL = "https://tavjvbxxqolmryszxxos.supabase.co";
+  const SUPABASE_KEY = "sb_publishable_5PF7WX87sLGppM-UUxzAbw_khVd3jLh";
+  const PEOPLE = ["Taylor","Brad","Kirk","Glenn","Kim"];
+  const QUICK = ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
+  const $ = s => document.querySelector(s);
+  const rowsEl = $("#rows"), emptyEl = $("#empty");
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ---------- state ----------
+  let jobs = [], notes = {}, meta = null;
+  let view = "hot", ownerFilter = "", includeSoon = false, openJob = null;
+  let me = "", session = null, feedOk = true;
+  let tvTimer = null, pollTimer = null, channel = null;
+  try { includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || ""; } catch (e) {}
+
+  // ---------- dates (plant time, Eastern) ----------
+  const fmtET = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" });
+  const todayISO = () => fmtET.format(new Date());
+  const dayNum = iso => Math.round(Date.UTC(+iso.slice(0,4), +iso.slice(5,7)-1, +iso.slice(8,10)) / 86400000);
+  const md = iso => iso ? `${+iso.slice(5,7)}/${+iso.slice(8,10)}` : "";
+  const money = n => "$" + (Number(n)||0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const stamp = ms => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const shortNum = s => s.length > 4 && /^\d{4}/.test(s) ? s.slice(4) : s;
+
+  // ---------- classify ----------
+  function classify(j) {
+    const t = dayNum(todayISO()), d = dayNum(j.dueDate);
+    const n = notes[j.orderNum] || {};
+    if (n.shippedPending) return { cls: "shipped", label: "Shipped · pending SOS", daysLate: 0 };
+    if (d < t) return { cls: "late", label: `${t - d} day${t - d === 1 ? "" : "s"} late`, daysLate: t - d };
+    if (d === t) return { cls: "today", label: "Due today", daysLate: 0 };
+    if (d - t <= 2) return { cls: "soon", label: d - t === 1 ? "Due tomorrow" : "Due in 2 days", daysLate: 0 };
+    return null;
+  }
+  function visibleJobs() {
+    const out = [];
+    for (const j of jobs) {
+      const c = classify(j); if (!c) continue;
+      if (c.cls === "soon" && !includeSoon) continue;
+      if (c.cls === "shipped") { const t = dayNum(todayISO()), d = dayNum(j.dueDate); if (d > t && !(includeSoon && d - t <= 2)) continue; }
+      if (view === "mine" && (notes[j.orderNum]?.owner || "") !== ownerFilter) continue;
+      out.push({ ...j, _c: c });
+    }
+    out.sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.orderDate < b.orderDate ? -1 : a.orderDate > b.orderDate ? 1 : a.orderNum.localeCompare(b.orderNum)));
+    return out;
+  }
+
+  // ---------- render ----------
+  function renderTotals() {
+    let late = [0, 0], today = [0, 0], soon = [0, 0];
+    for (const j of jobs) { const c = classify(j); if (!c) continue;
+      if (c.cls === "late") { late[0]++; late[1] += +j.amount || 0; }
+      else if (c.cls === "today") { today[0]++; today[1] += +j.amount || 0; }
+      else if (c.cls === "soon") { soon[0]++; soon[1] += +j.amount || 0; } }
+    $("#tLateN").textContent = late[0]; $("#tLateD").textContent = money(late[1]);
+    $("#tTodayN").textContent = today[0]; $("#tTodayD").textContent = money(today[1]);
+    $("#tSoonN").textContent = soon[0]; $("#tSoonD").textContent = money(soon[1]);
+    $("#tileSoon").hidden = !includeSoon;
+    $("#tAllN").textContent = jobs.length;
+  }
+  function renderFresh() {
+    const dot = $("#freshDot"), txt = $("#freshText");
+    if (!feedOk) { txt.textContent = "Can't reach the board right now, showing the last data loaded"; dot.className = "dot bad"; return; }
+    if (!meta || !meta.lastUpdated) { txt.textContent = jobs.length ? "Job data loaded" : "Waiting for job data"; dot.className = "dot"; return; }
+    const age = (Date.now() - new Date(meta.lastUpdated).getTime()) / 60000;
+    txt.textContent = `Last updated ${stamp(new Date(meta.lastUpdated).getTime())} ET` + (meta.source ? ` · ${meta.source}` : "");
+    dot.className = "dot " + (age > 90 ? "stale" : "ok");
+  }
+  function notePreview(n) {
+    const list = n?.notes || []; if (!list.length) return `<span class="note-preview"><span class="meta">—</span></span>`;
+    const last = list[list.length - 1];
+    return `<span class="note-preview">${esc(last.text)} <span class="meta">· ${esc(last.by || "")} ${stamp(last.at)}</span>${list.length > 1 ? ` <span class="more">+${list.length - 1} more</span>` : ""}</span>`;
+  }
+  function renderRows() {
+    const list = visibleJobs();
+    emptyEl.hidden = list.length > 0;
+    $("#grid").hidden = list.length === 0;
+    const tv = document.body.classList.contains("tv");
+    let h = "";
+    for (const j of list) {
+      const n = notes[j.orderNum] || {}; const c = j._c; const isOpen = openJob === j.orderNum && !tv;
+      h += `<tr class="job ${c.cls}${isOpen ? " open" : ""}" data-id="${esc(j.orderNum)}" tabindex="0" aria-expanded="${isOpen}">
+        <td class="stripe"></td>
+        <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
+        <td><span class="loc">${esc(j.location)}</span></td>
+        <td><span class="pill ${c.cls}">${esc(c.label)}</span></td>
+        <td class="cust">${esc(j.customer)}</td>
+        <td>${esc(j.rep)}</td>
+        <td class="num">${md(j.orderDate)}</td>
+        <td class="num"><b>${md(j.dueDate)}</b></td>
+        <td class="r num">${money(j.amount)}</td>
+        <td>${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
+        <td>${notePreview(n)}</td>
+        <td class="print-only"></td>
+        <td class="caret">${isOpen ? "▲" : "▼"}</td></tr>`;
+      if (isOpen) h += detailRow(j, n);
+    }
+    rowsEl.innerHTML = h;
+    const lateN = list.filter(j => j._c.cls === "late").length, todN = list.filter(j => j._c.cls === "today").length;
+    $("#printNote").textContent = `Printed ${stamp(Date.now())} ET · ${lateN} overdue · ${todN} due today${view === "mine" ? ` · ${ownerFilter || "unassigned"} only` : ""}${includeSoon ? " · next 2 days included" : ""}. Dark stripe = overdue, grey stripe = due today. Write initials when the job is on the truck.`;
+    if (tv) requestAnimationFrame(fitTV);
+  }
+  function detailRow(j, n) {
+    const owners = PEOPLE.map(p => `<button type="button" data-owner="${esc(p)}" aria-pressed="${n.owner === p}">${esc(p)}</button>`).join("") +
+      `<button type="button" data-owner="" aria-pressed="${!n.owner}">Nobody</button>`;
+    const list = (n.notes || []).slice().reverse().map(x => `<li><span>${esc(x.text)}</span><span class="meta">${esc(x.by || "")} · ${stamp(x.at)}</span></li>`).join("") || `<li class="empty">No notes yet.</li>`;
+    const quick = QUICK.map(q => `<button type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join("");
+    return `<tr class="detail" data-for="${esc(j.orderNum)}"><td colspan="13"><div class="detail-grid">
+      <div class="field"><label>Owner</label><div class="owner-pick">${owners}</div>
+        <label style="margin-top:10px">Flags</label>
+        <label class="toggle"><input type="checkbox" id="ship_${esc(j.orderNum)}" data-ship ${n.shippedPending ? "checked" : ""}> Shipped, pending SOS update</label>
+        <p class="ro-note">Notes are signed <b>${esc(me)}</b>.</p>
+      </div>
+      <div class="field"><label>Notes</label><ul class="notes-list">${list}</ul>
+        <div class="quick">${quick}</div>
+        <form class="add-note" data-add><input type="text" id="note_${esc(j.orderNum)}" placeholder="Add a note, e.g. holding for foil on item 2" maxlength="300" autocomplete="off"><button type="submit" class="btn primary">Add note</button></form>
+      </div></div></td></tr>`;
+  }
+  function render() { renderTotals(); renderFresh(); renderRows(); }
+
+  // ---------- interactions ----------
+  rowsEl.addEventListener("click", e => {
+    if (document.body.classList.contains("tv")) return;
+    const ownerBtn = e.target.closest("[data-owner]");
+    if (ownerBtn) { setOwner(ownerBtn.closest("tr.detail").dataset.for, ownerBtn.dataset.owner); return; }
+    const q = e.target.closest("[data-quick]");
+    if (q) { addNote(q.closest("tr.detail").dataset.for, q.dataset.quick); return; }
+    if (e.target.closest("tr.detail")) return;
+    const row = e.target.closest("tr.job"); if (!row) return;
+    openJob = openJob === row.dataset.id ? null : row.dataset.id; renderRows();
+    if (openJob) { const inp = document.getElementById("note_" + openJob); if (inp && window.innerWidth > 760) inp.focus({ preventScroll: true }); }
+  });
+  rowsEl.addEventListener("keydown", e => { const row = e.target.closest("tr.job"); if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); } });
+  rowsEl.addEventListener("submit", e => { const f = e.target.closest("[data-add]"); if (!f) return; e.preventDefault(); const inp = f.querySelector("input"); const t = inp.value.trim(); if (!t) return; addNote(f.closest("tr.detail").dataset.for, t); inp.value = ""; });
+  rowsEl.addEventListener("change", e => { const c = e.target.closest("[data-ship]"); if (!c) return; setShipped(c.closest("tr.detail").dataset.for, c.checked); });
+
+  $("#viewSeg").addEventListener("click", e => { const b = e.target.closest("button[data-view]"); if (!b) return; setView(b.dataset.view); });
+  function setView(v) {
+    if (v === "tv") { enterTV(); return; }
+    view = v; openJob = null;
+    for (const b of document.querySelectorAll("#viewSeg button")) b.setAttribute("aria-pressed", String(b.dataset.view === v));
+    $("#ownerFilterWrap").hidden = v !== "mine";
+    if (v === "mine" && !ownerFilter) { ownerFilter = PEOPLE.includes(me) ? me : PEOPLE[0]; of.value = ownerFilter; }
+    renderRows();
+  }
+  const of = $("#ownerFilter"); of.innerHTML = PEOPLE.map(p => `<option value="${p}">${p}</option>`).join("") + `<option value="">Unassigned</option>`;
+  of.value = ownerFilter; of.addEventListener("change", () => { ownerFilter = of.value; try { localStorage.setItem("hl.owner", ownerFilter); } catch (e) {} renderRows(); });
+  const st = $("#soonToggle"); st.checked = includeSoon; st.addEventListener("change", () => { includeSoon = st.checked; try { localStorage.setItem("hl.soon", includeSoon ? "1" : "0"); } catch (e) {} render(); });
+  $("#printBtn").addEventListener("click", () => { openJob = null; renderRows(); window.print(); });
+  $("#refreshBtn").addEventListener("click", () => loadAll(true));
+  $("#signOut").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+  let toastT; function toast(msg) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
+
+  // ---------- TV mode: every job on one screen, board zoomed to fit the height ----------
+  function fitTV() {
+    if (!document.body.classList.contains("tv")) return;
+    const b = document.body; b.style.zoom = "1";
+    const need = document.documentElement.scrollHeight, have = window.innerHeight;
+    let z = Math.max(0.45, Math.min(2.2, (have / need) * 0.985));
+    b.style.zoom = String(z);
+    const need2 = document.documentElement.scrollHeight;
+    if (need2 > have) { z = Math.max(0.45, z * (have / need2) * 0.99); b.style.zoom = String(z); }
+  }
+  function enterTV() {
+    document.body.classList.add("tv"); openJob = null;
+    document.documentElement.requestFullscreen?.().catch(() => {});
+    renderRows(); requestAnimationFrame(fitTV);
+    clearInterval(tvTimer); tvTimer = setInterval(fitTV, 5000);
+  }
+  function exitTV() { document.body.classList.remove("tv"); document.body.style.zoom = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); renderRows(); }
+  $("#tvExit").addEventListener("click", exitTV);
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("tv")) exitTV(); });
+  document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("tv")) exitTV(); });
+  window.addEventListener("resize", () => { if (document.body.classList.contains("tv")) { renderRows(); requestAnimationFrame(fitTV); } });
+  setInterval(() => { if (session) render(); }, 60000); // re-evaluate "today" and freshness every minute
+
+  // ---------- data ----------
+  const rowToJob = r => ({ orderNum: r.order_num, customer: r.customer, rep: r.rep, orderDate: r.order_date, dueDate: r.due_date, amount: Number(r.amount), location: r.location, isReceipt: !!r.is_receipt });
+  async function loadAll(manual) {
+    const [j, n, m] = await Promise.all([
+      sb.from("hotlist_jobs").select("*"),
+      sb.from("hotlist_notes").select("*"),
+      sb.from("hotlist_meta").select("*").eq("key", "status").maybeSingle()
+    ]);
+    if (j.error || n.error || m.error) { feedOk = false; renderFresh(); if (manual) toast("Couldn't refresh"); return; }
+    feedOk = true;
+    jobs = j.data.filter(r => r.due_date).map(rowToJob);
+    const nn = {}; for (const r of n.data) nn[r.order_num] = { owner: r.owner || "", shippedPending: !!r.shipped_pending, notes: r.notes || [] }; notes = nn;
+    meta = m.data ? m.data.value : null;
+    render(); if (manual) toast("Board refreshed");
+  }
+  function subscribe() {
+    if (channel) return;
+    let t;
+    const bump = () => { clearTimeout(t); t = setTimeout(() => loadAll(false), 300); };
+    channel = sb.channel("hotlist")
+      .on("postgres_changes", { event: "*", schema: "public", table: "hotlist_jobs" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "hotlist_notes" }, bump)
+      .on("postgres_changes", { event: "*", schema: "public", table: "hotlist_meta" }, bump)
+      .subscribe();
+    clearInterval(pollTimer); pollTimer = setInterval(() => loadAll(false), 120000); // safety net if realtime drops
+  }
+  async function writeNote(id, patch) {
+    const cur = { owner: "", shippedPending: false, notes: [], ...(notes[id] || {}) };
+    const next = { ...cur, ...patch };
+    notes[id] = next; renderRows();
+    const { error } = await sb.from("hotlist_notes").upsert({ order_num: id, owner: next.owner, shipped_pending: next.shippedPending, notes: next.notes, updated_at: new Date().toISOString(), updated_by: me });
+    if (error) { toast("Save failed, try again"); loadAll(false); }
+  }
+  const setOwner = (id, owner) => writeNote(id, { owner });
+  const setShipped = (id, on) => writeNote(id, { shippedPending: !!on, notes: on ? [...(notes[id]?.notes || []), { text: "Shipped, pending SOS update", by: me, at: Date.now() }] : (notes[id]?.notes || []) });
+  const addNote = (id, text) => writeNote(id, { notes: [...(notes[id]?.notes || []), { text, by: me, at: Date.now() }], ...(text === "Shipped, pending SOS update" ? { shippedPending: true } : {}) });
+
+  // ---------- auth ----------
+  const gate = $("#gate"), loginForm = $("#loginForm"), resetForm = $("#resetForm");
+  async function resolveName(s) {
+    const email = s.user?.email || "";
+    let full = s.user?.user_metadata?.full_name || "";
+    try { const { data } = await sb.from("profiles").select("full_name").eq("id", s.user.id).maybeSingle(); if (data?.full_name) full = data.full_name; } catch (e) {}
+    const first = (full || email.split("@")[0].split(".")[0] || "Someone").split(/\s+/)[0];
+    me = first.charAt(0).toUpperCase() + first.slice(1);
+    $("#meLabel").innerHTML = `Signed in as <b>${esc(full || email)}</b>`;
+  }
+  async function onSession(s) {
+    session = s;
+    if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
+    gate.hidden = true;
+    await resolveName(s);
+    await loadAll(false); subscribe();
+  }
+  loginForm.addEventListener("submit", async e => {
+    e.preventDefault(); $("#loginErr").textContent = ""; $("#loginBtn").disabled = true;
+    const { error } = await sb.auth.signInWithPassword({ email: $("#email").value.trim(), password: $("#password").value });
+    $("#loginBtn").disabled = false;
+    if (error) $("#loginErr").textContent = /invalid/i.test(error.message) ? "That email and password don't match." : error.message;
+  });
+  $("#forgot").addEventListener("click", async () => {
+    const email = $("#email").value.trim(); if (!email) { $("#loginErr").textContent = "Type your email first, then click the reset link."; return; }
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split("#")[0] });
+    $("#loginErr").textContent = error ? error.message : "Reset link sent. Check your email.";
+  });
+  resetForm.addEventListener("submit", async e => {
+    e.preventDefault(); const { error } = await sb.auth.updateUser({ password: $("#newPassword").value });
+    if (error) { $("#resetErr").textContent = error.message; return; }
+    toast("Password saved"); resetForm.hidden = true; loginForm.hidden = true; gate.hidden = true; history.replaceState(null, "", location.pathname);
+    const { data } = await sb.auth.getSession(); onSession(data.session);
+  });
+  sb.auth.onAuthStateChange((event, s) => {
+    if (event === "PASSWORD_RECOVERY") { gate.hidden = false; loginForm.hidden = true; resetForm.hidden = false; return; }
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION") { if (!session && s) onSession(s); else if (!s) onSession(null); }
+    if (event === "SIGNED_OUT") onSession(null);
+  });
+})();
+</script>
+</body>
+</html>
