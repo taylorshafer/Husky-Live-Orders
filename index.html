@@ -133,7 +133,8 @@ tr.closed td{color:var(--muted)} tr.closed td.cust{color:var(--ink)}
 .owner-chip.none{background:transparent;color:var(--muted);font-weight:400}
 .note-preview{font-size:13.5px;color:var(--ink);max-width:340px;min-width:0;display:inline-block}
 .note-preview .meta{color:var(--muted);font-size:12px}
-.note-preview .nl{display:block} .note-preview .nl+.nl{margin-top:3px;padding-top:3px;border-top:1px dotted var(--line)}
+.note-preview .nl{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px} .note-preview .nl+.nl{margin-top:2px}
+.note-preview .more{display:none;color:var(--accent);font-size:12px;font-weight:600;margin-left:4px}
 .caret{color:var(--muted);font-size:12px;padding-left:4px}
 th.print-only,td.print-only{display:none}
 tr.group td{background:var(--group-bg);font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:.06em;text-transform:uppercase;padding:7px 10px;border-bottom:1px solid var(--line-strong);position:sticky;top:37px;z-index:2}
@@ -185,7 +186,8 @@ body.tv .tile .big{font-size:60px} body.tv .tile .lbl{font-size:16px} body.tv .t
 body.tv table{font-size:22px} body.tv th{font-size:17px} body.tv td{padding:14px 12px}
 body.tv .job-num{font-size:30px} body.tv .job-num small{font-size:14px}
 body.tv .pill{font-size:19px} body.tv .loc{font-size:18px}
-body.tv .note-preview{font-size:19px;max-width:460px} body.tv .note-preview .meta{font-size:15px}
+body.tv .note-preview{font-size:19px;max-width:520px} body.tv .note-preview .nl{max-width:520px} body.tv .note-preview .meta{font-size:15px}
+body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:15px}
 body.tv .owner-chip{font-size:18px}
 body.tv tr.job{cursor:default}
 body.tv .wrap{overflow:visible;flex:none;min-height:0}
@@ -263,7 +265,7 @@ body.tv .tv-exit:hover{opacity:1}
   <span class="spacer"></span>
   <span class="me" id="meLabel"></span>
   <button type="button" class="btn quiet" id="signOut">Sign out</button>
-  <button type="button" class="btn" id="refreshBtn" title="Re-read the board now">Refresh</button>
+  <button type="button" class="btn" id="refreshBtn" title="Pull fresh data from SOS now">Refresh</button>
   <button type="button" class="btn primary" id="printBtn" title="One landscape sheet with a blank initials column">Print sheet</button>
 </div>
 
@@ -508,7 +510,9 @@ body.tv .tv-exit:hover{opacity:1}
   function notePreview(n) {
     const list = n?.notes || []; if (!list.length) return `<span class="note-preview"><span class="meta">—</span></span>`;
     // Every note, newest first, each signed, so a job touched by several people reads as a conversation
-    return `<span class="note-preview">${list.slice().reverse().map(x => `<span class="nl">${esc(x.text)} <span class="meta">· ${esc(x.by || "")} ${stamp(x.at)}</span></span>`).join("")}</span>`;
+    // One clipped line per note, newest first (hover for the full text; the expanded panel shows everything). TV shows only the newest.
+    const lines = list.slice().reverse().map((x, i) => `<span class="nl" title="${esc(x.text)} · ${esc(x.by || "")} ${stamp(x.at)}">${esc(x.text)} <span class="meta">· ${esc(x.by || "")} ${stamp(x.at)}</span>${i === 0 && list.length > 1 ? `<span class="more">+${list.length - 1}</span>` : ""}</span>`);
+    return `<span class="note-preview">${lines.join("")}</span>`;
   }
   function rowHtml(j, isOpen) {
     const n = notes[j.orderNum] || {}, c = j._c;
@@ -623,23 +627,67 @@ body.tv .tv-exit:hover{opacity:1}
   const st = $("#soonToggle"); st.checked = includeSoon; st.addEventListener("change", () => { includeSoon = st.checked; try { localStorage.setItem("hl.soon", includeSoon ? "1" : "0"); } catch (e) {} render(); });
   const rd = $("#recentDays"); rd.value = String(recentDays); rd.addEventListener("change", () => { recentDays = +rd.value || 30; try { localStorage.setItem("hl.recent", String(recentDays)); } catch (e) {} render(); });
   $("#printBtn").addEventListener("click", () => { openJob = null; renderRows(); window.print(); });
-  $("#refreshBtn").addEventListener("click", () => loadAll(true));
+  let refreshing = false;
+  $("#refreshBtn").addEventListener("click", async () => {
+    if (refreshing) return; refreshing = true; const btn = $("#refreshBtn"); btn.disabled = true; btn.textContent = "Pulling from SOS…";
+    const before = meta && meta.lastUpdated;
+    try {
+      const { data, error } = await sb.rpc("hotlist_request_refresh");
+      if (error) throw error;
+      if (data === "recent") { toast("SOS was pulled less than a minute ago, showing that"); await loadAll(false); }
+      else {
+        // the sync takes ~20-40s; realtime will redraw the board when it lands, but poll too in case the channel is asleep
+        const t0 = Date.now(); let done = false;
+        while (Date.now() - t0 < 75000) { await new Promise(r => setTimeout(r, 4000)); await loadAll(false); if (meta && meta.lastUpdated !== before) { done = true; break; } }
+        toast(done ? "Board refreshed from SOS" : "SOS is taking a while; the board will update when it finishes");
+      }
+    } catch (e) { toast("Couldn't start a refresh: " + (e.message || e)); await loadAll(false); }
+    btn.disabled = false; btn.textContent = "Refresh"; refreshing = false;
+  });
   $("#signOut").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
   let toastT; function toast(msg) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
 
   // ---------- TV mode ----------
+  // URL switches for a screen that runs unattended:
+  //   ?tv=1        open straight into TV mode after sign-in
+  //   ?tvinset=4   keep a 4% margin on every edge (TVs that overscan and clip the edges, e.g. Insignia)
+  //   ?tvzoom=0.9  scale the fitted board by 0.9 on top (a manual nudge if a TV browser still clips)
+  const TVQ = new URLSearchParams(location.search);
+  const TV_AUTO = TVQ.get("tv") === "1", TV_INSET = Math.min(15, Math.max(0, parseFloat(TVQ.get("tvinset")) || 0)), TV_ZOOM = Math.min(1.5, Math.max(0.5, parseFloat(TVQ.get("tvzoom")) || 1));
   function fitTV() {
     if (!document.body.classList.contains("tv")) return;
-    const b = document.body, have = window.innerHeight; let z = 1; b.style.zoom = "1";
-    const contentH = () => document.querySelector(".page").getBoundingClientRect().bottom + 18 * z; // viewport px, works across zoom implementations
-    for (let i = 0; i < 5; i++) { // converge: the zoomed layout re-wraps, so measure, adjust, repeat
+    const b = document.body, de = document.documentElement;
+    const vh = Math.min(window.innerHeight, de.clientHeight || Infinity, (window.visualViewport && window.visualViewport.height) || Infinity);
+    const have = vh * (1 - TV_INSET / 50); // inset applies top and bottom
+    b.style.padding = TV_INSET ? `${TV_INSET}vh ${TV_INSET}vw` : "";
+    let z = 1; b.style.zoom = "1";
+    const contentH = () => document.querySelector(".page").getBoundingClientRect().bottom + 18 * z;
+    for (let i = 0; i < 6; i++) { // converge: the zoomed layout re-wraps, so measure, adjust, repeat
       const need = contentH(); const ratio = have / need;
-      if (ratio > 0.985 && ratio < 1.015) break;
-      z = Math.max(0.45, Math.min(2.4, z * ratio * 0.99)); b.style.zoom = String(z);
+      if (ratio >= 1 && ratio < 1.015) break; // never accept an overshoot: a clipped last row is worse than a sliver of spare space
+      z = Math.max(0.25, Math.min(2.4, z * ratio * 0.99)); b.style.zoom = String(z);
+    }
+    for (let i = 0; i < 6 && contentH() > have; i++) { z *= 0.98; b.style.zoom = String(z); }
+    // Belt and braces for TV browsers (Silk, webOS) whose zoom math differs: if the page can still scroll, it doesn't fit. Shrink until it does.
+    const se = document.scrollingElement || de;
+    for (let i = 0; i < 16 && z > 0.25 && (se.scrollHeight > se.clientHeight + 2 || se.scrollWidth > se.clientWidth + 2); i++) { z *= 0.96; b.style.zoom = String(z); }
+    if (TV_ZOOM !== 1) { z *= TV_ZOOM; b.style.zoom = String(z); }
+    if (TVQ.get("tvdebug") === "1") { // ?tvdebug=1 prints what the TV browser reports, to tune tvinset/tvzoom for an odd screen
+      let d = document.getElementById("tvdbg"); if (!d) { d = document.createElement("div"); d.id = "tvdbg"; d.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99;background:#000;color:#0f0;font:14px/1.3 monospace;padding:6px 8px;zoom:1"; document.body.appendChild(d); }
+      d.textContent = `inner ${window.innerWidth}x${window.innerHeight} · client ${de.clientWidth}x${de.clientHeight} · visual ${window.visualViewport ? Math.round(window.visualViewport.width) + "x" + Math.round(window.visualViewport.height) : "n/a"} · dpr ${window.devicePixelRatio} · scroll ${se.scrollWidth}x${se.scrollHeight} · zoom ${z.toFixed(3)} · ${navigator.userAgent.slice(0, 60)}`;
     }
   }
   let tvPrevView = "hot", tvPrevSoon = false;
+  let tvReloadTimer = null;
+  function scheduleTVReload() { // next 3:00 AM Eastern, at least 10 minutes out
+    clearTimeout(tvReloadTimer);
+    const now = new Date(); const et = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+    let ms = ((27 - et.getHours()) % 24) * 3600000 - et.getMinutes() * 60000 - et.getSeconds() * 1000; if (ms < 600000) ms += 86400000;
+    tvReloadTimer = setTimeout(() => { if (document.body.classList.contains("tv")) location.reload(); }, Math.min(ms, 2147000000));
+  }
   function enterTV() {
+    scheduleTVReload();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(fitTV)); // web fonts change row heights; refit once they land
     // TV always shows the production hot list plus the next 2 days (no holds, no order entry), whatever the viewer had selected
     tvPrevView = view === "mine" ? "mine" : "hot"; tvPrevSoon = includeSoon;
     view = "hot"; includeSoon = true; st.checked = true;
@@ -648,7 +696,7 @@ body.tv .tv-exit:hover{opacity:1}
     render(); requestAnimationFrame(fitTV);
     clearInterval(tvTimer); tvTimer = setInterval(fitTV, 5000);
   }
-  function exitTV() { document.body.classList.remove("tv"); document.body.style.zoom = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
+  function exitTV() { clearTimeout(tvReloadTimer); document.body.classList.remove("tv"); document.body.style.zoom = ""; document.body.style.padding = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
   $("#tvExit").addEventListener("click", exitTV);
   document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("tv")) exitTV(); });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("tv")) exitTV(); });
@@ -709,6 +757,7 @@ body.tv .tv-exit:hover{opacity:1}
     session = s;
     if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
     gate.hidden = true; await resolveName(s); await loadAll(false); subscribe();
+    if (TV_AUTO && !document.body.classList.contains("tv")) enterTV();
   }
   loginForm.addEventListener("submit", async e => {
     e.preventDefault(); $("#loginErr").textContent = ""; $("#loginBtn").disabled = true;
