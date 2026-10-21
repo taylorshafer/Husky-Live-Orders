@@ -69,6 +69,7 @@ h1{font-family:var(--display);font-weight:700;font-size:30px;line-height:1;margi
 /* Toolbar */
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
 .bar.sub{margin-top:-2px}
+.bar.actions{flex-wrap:nowrap;margin-top:-2px} .bar.actions .me{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
 .seg button{background:var(--panel);border:0;padding:7px 13px;font-weight:600;font-family:var(--display);font-size:16px;letter-spacing:.03em;text-transform:uppercase}
 .seg button+button{border-left:1px solid var(--line-strong)}
@@ -259,9 +260,11 @@ body.tv .tv-exit:hover{opacity:1}
   <label class="toggle" id="soonWrap"><input type="checkbox" id="soonToggle"> Include next 2 days</label>
   <label class="ctl" id="recentWrap" hidden><select id="recentDays" hidden><option value="30">30 days</option></select></label>
   <label class="search"><input type="search" id="search" placeholder="Search job #, customer, rep" aria-label="Search"></label>
-  <span class="spacer"></span>
+</div>
+<div class="bar actions" aria-label="Actions">
   <span class="me" id="meLabel"></span>
   <button type="button" class="btn quiet" id="signOut">Sign out</button>
+  <span class="spacer"></span>
   <button type="button" class="btn" id="refreshBtn" title="Pull fresh data from SOS now">Refresh</button>
   <button type="button" class="btn" id="csvBtn" title="Download what is on screen right now (this view, filters, search and sort) as a CSV for Excel">Export CSV</button>
   <button type="button" class="btn primary" id="printBtn" title="One landscape sheet with a blank initials column">Print sheet</button>
