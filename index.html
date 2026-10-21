@@ -263,6 +263,7 @@ body.tv .tv-exit:hover{opacity:1}
   <span class="me" id="meLabel"></span>
   <button type="button" class="btn quiet" id="signOut">Sign out</button>
   <button type="button" class="btn" id="refreshBtn" title="Pull fresh data from SOS now">Refresh</button>
+  <button type="button" class="btn" id="csvBtn" title="Download what is on screen right now (this view, filters, search and sort) as a CSV for Excel">Export CSV</button>
   <button type="button" class="btn primary" id="printBtn" title="One landscape sheet with a blank initials column">Print sheet</button>
 </div>
 
@@ -344,7 +345,7 @@ body.tv .tv-exit:hover{opacity:1}
   const PEOPLE = ["Taylor","Brad","Kirk","Glenn","Kim"];
   const QUICK = ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
   const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
-  const STAGE_LABEL = { production: "In production", hold: "On hold", order_entry: "Order entry", shipped: "Shipped · not billed", other: "Other" };
+  const STAGE_LABEL = { production: "In production", ready: "Ready to ship", hold: "On hold", order_entry: "Order entry", shipped: "Shipped · not billed", other: "Other" };
   const $ = s => document.querySelector(s);
   const rowsEl = $("#rows"), emptyEl = $("#empty");
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -624,6 +625,21 @@ body.tv .tv-exit:hover{opacity:1}
   const st = $("#soonToggle"); st.checked = includeSoon; st.addEventListener("change", () => { includeSoon = st.checked; try { localStorage.setItem("hl.soon", includeSoon ? "1" : "0"); } catch (e) {} render(); });
   const rd = $("#recentDays"); rd.value = String(recentDays); rd.addEventListener("change", () => { recentDays = +rd.value || 30; try { localStorage.setItem("hl.recent", String(recentDays)); } catch (e) {} render(); });
   $("#printBtn").addEventListener("click", () => { openJob = null; renderRows(); window.print(); });
+  // Export exactly what's on screen: same view, filters, search and sort as the table, one row per job, notes flattened.
+  $("#csvBtn").addEventListener("click", () => {
+    const list = visibleJobs(); if (!list.length) { toast("Nothing to export in this view"); return; }
+    const grouped = groupKey(list[0]) !== null;
+    const head = [...(grouped ? ["Group"] : []), "Job #", "Order #", "Location", "Status", "Days late", "Customer", "Rep", "Ordered", "Due", "Amount", "Owner", "Stage", "On list", "Shipped pending SOS", "Notes"];
+    const q = v => { const t = String(v ?? ""); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+    const rows = list.map(j => { const n = notes[j.orderNum] || {}, c = j._c;
+      const noteTxt = (n.notes || []).map(x => `${x.text} (${x.by || ""} ${stamp(x.at)})`).join(" | ");
+      return [...(grouped ? [groupLabel(groupKey(j))] : []), shortNum(j.orderNum), j.orderNum, j.location, c.label, c.daysLate || 0, j.customer, j.rep, j.orderDate, j.dueDate, (Number(j.amount) || 0).toFixed(2), n.owner || "", STAGE_LABEL[isPinned(j) ? "production" : j.stage] || j.stage, isPinned(j) ? "yes" : "", n.shippedPending ? "yes" : "", noteTxt].map(q).join(",");
+    });
+    const csv = "\uFEFF" + [head.join(","), ...rows].join("\r\n"); // BOM so Excel reads accents and the $ column cleanly
+    const name = `husky-${view === "hot" ? "hot-list" : view === "all" ? "all-open" : view === "ready" ? "ready-to-ship" : view === "held" ? "held" : view === "mine" ? (ownerFilter || "unassigned").toLowerCase() + "-jobs" : view}-${todayISO()}.csv`;
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast(`Exported ${list.length} job${list.length === 1 ? "" : "s"} to ${name}`);
+  });
   let refreshing = false;
   $("#refreshBtn").addEventListener("click", async () => {
     if (refreshing) return; refreshing = true; const btn = $("#refreshBtn"); btn.disabled = true; btn.textContent = "Pulling from SOS…";
