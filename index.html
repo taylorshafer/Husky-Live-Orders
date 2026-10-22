@@ -683,13 +683,21 @@ body.tv .tv-exit:hover{opacity:1}
   //   ?tv=1        open straight into TV mode after sign-in
   //   ?tvinset=4   keep a 4% margin on every edge (TVs that overscan and clip the edges, e.g. Insignia)
   //   ?tvzoom=0.9  scale the fitted board by 0.9 on top (a manual nudge if a TV browser still clips)
-  const TVQ = new URLSearchParams(location.search);
-  const TV_AUTO = TVQ.get("tv") === "1", TV_INSET = Math.min(15, Math.max(0, parseFloat(TVQ.get("tvinset")) || 0)), TV_ZOOM = Math.min(1.5, Math.max(0.5, parseFloat(TVQ.get("tvzoom")) || 1));
+  let TVQ = new URLSearchParams(location.search);
+  const TV_AUTO = TVQ.get("tv") === "1";
+  const tvInset = () => Math.min(15, Math.max(0, parseFloat(TVQ.get("tvinset")) || 0)), tvZoom = () => Math.min(1.5, Math.max(0.5, parseFloat(TVQ.get("tvzoom")) || 1));
+  // The TV Mode button writes the TV address into the address bar (and Exit takes it back out), so a bookmark or a
+  // reload taken while in TV mode comes straight back to TV mode: .../?tv=1&tvinset=5
+  function setTVUrl(on) {
+    const q = new URLSearchParams(location.search);
+    if (on) { q.set("tv", "1"); if (!q.has("tvinset")) q.set("tvinset", "5"); } else { q.delete("tv"); q.delete("tvinset"); q.delete("tvzoom"); q.delete("tvdebug"); }
+    const qs = q.toString(); history.replaceState(null, "", location.pathname + (qs ? "?" + qs : "") + location.hash); TVQ = q;
+  }
   function fitTV() {
     if (!document.body.classList.contains("tv")) return;
     const b = document.body, de = document.documentElement;
     const vh = Math.min(window.innerHeight, de.clientHeight || Infinity, (window.visualViewport && window.visualViewport.height) || Infinity);
-    const have = vh * (1 - TV_INSET / 50); // inset applies top and bottom
+    const TV_INSET = tvInset(), TV_ZOOM = tvZoom(); const have = vh * (1 - TV_INSET / 50); // inset applies top and bottom
     b.style.padding = TV_INSET ? `${TV_INSET}vh ${TV_INSET}vw` : "";
     let z = 1; b.style.zoom = "1"; b.style.setProperty("--tvpad", "6px"); // start from the tight layout every pass
     const contentH = () => document.querySelector(".page").getBoundingClientRect().bottom + 18 * z;
@@ -731,7 +739,7 @@ body.tv .tv-exit:hover{opacity:1}
   }
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && document.body.classList.contains("tv")) keepAwake(true); });
   function enterTV() {
-    scheduleTVReload(); keepAwake(true);
+    setTVUrl(true); scheduleTVReload(); keepAwake(true);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(fitTV)); // web fonts change row heights; refit once they land
     // TV always shows the production hot list plus the next 2 days (no holds, no order entry), whatever the viewer had selected
     tvPrevView = view === "mine" ? "mine" : "hot"; tvPrevSoon = includeSoon;
@@ -741,7 +749,7 @@ body.tv .tv-exit:hover{opacity:1}
     render(); requestAnimationFrame(fitTV);
     clearInterval(tvTimer); tvTimer = setInterval(fitTV, 5000);
   }
-  function exitTV() { clearTimeout(tvReloadTimer); keepAwake(false); document.body.classList.remove("tv"); document.body.style.zoom = ""; document.body.style.padding = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
+  function exitTV() { setTVUrl(false); clearTimeout(tvReloadTimer); keepAwake(false); document.body.classList.remove("tv"); document.body.style.zoom = ""; document.body.style.padding = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
   $("#tvExit").addEventListener("click", exitTV);
   document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("tv")) exitTV(); });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("tv")) exitTV(); });
