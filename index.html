@@ -185,17 +185,23 @@ body.tv .head{margin-bottom:6px} body.tv .strip{margin-bottom:6px}
 body.tv .logo{width:210px} body.tv h1{font-size:46px} body.tv .eyebrow{font-size:17px;font-weight:700} body.tv .fresh{font-size:20px;font-weight:600}
 body.tv .tile{padding:8px 14px} body.tv .tile .big{font-size:56px} body.tv .tile .lbl{font-size:19px;font-weight:700} body.tv .tile .sub{font-size:21px;font-weight:600}
 /* TV: the fit-to-screen zoom is set by the row count, so the small text has to be big and bold relative to the job number to stay readable from across the floor */
-body.tv table{font-size:27px;font-weight:600} body.tv th{font-size:19px;font-weight:700;padding:8px 10px} body.tv td{padding:6px 10px;vertical-align:middle}
+body.tv table{font-size:27px;font-weight:600} body.tv th{font-size:19px;font-weight:700;padding:8px 10px} body.tv td{padding:var(--tvpad,6px) 7px;vertical-align:middle}
 body.tv .job-num{font-size:34px} body.tv .job-num small{display:none} /* short job # only on the TV: one line per row means a bigger zoom for everything */
-body.tv th:nth-child(11){width:17%} body.tv th:nth-child(5){width:17%}
-body.tv .pill{font-size:21px;border-width:2px} body.tv .loc{font-size:20px;font-weight:700;border-width:1.5px} body.tv .pin-tag{font-size:14px}
+body.tv th:nth-child(6),body.tv td:nth-child(6),body.tv th:nth-child(7),body.tv td:nth-child(7){display:none} /* TV: no Rep, no Ordered */
+body.tv td,body.tv th{white-space:nowrap} /* no wrapping on the TV: the fit loop sizes the zoom so both columns fit side by side */
+body.tv .owner-chip.none{font-size:0} body.tv .owner-chip.none::before{content:"–";font-size:21px} /* TV: unassigned shows as a dash to keep the column narrow */
+body.tv .ct{display:inline-block;max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+#keepAwake{position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
+body.tv .pill{font-size:20px;border-width:2px;padding:3px 6px} body.tv .loc{font-size:18px;font-weight:700;border-width:1.5px;padding:2px 5px} body.tv .pin-tag{font-size:14px}
 body.tv .cust{font-weight:700} body.tv .num{font-weight:700}
-body.tv .note-preview{font-size:21px;font-weight:500;max-width:330px} body.tv .note-preview .nl{max-width:330px} body.tv .note-preview .meta{font-size:16px;font-weight:600}
+body.tv .note-preview{font-size:21px;font-weight:500;max-width:150px} body.tv .note-preview .nl{max-width:150px} body.tv .note-preview .meta{font-size:16px;font-weight:600}
 body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:16px}
 body.tv .owner-chip{font-size:20px;font-weight:700} body.tv .owner-chip.none{font-weight:600}
 body.tv tr.total td{font-size:24px;font-weight:700}
 body.tv tr.job{cursor:default}
-body.tv .wrap{overflow:visible;flex:none;min-height:0}
+body.tv .wrap{overflow:visible;flex:none;min-height:0;display:flex;align-items:flex-start;gap:0}
+body.tv table{min-width:0} body.tv #grid,body.tv #grid2{flex:1 1 0;min-width:0;width:50%} body.tv #grid2{border-left:2px solid var(--line-strong)}
+body.tv #grid2[hidden]{display:none}
 .tv-exit{position:fixed;top:10px;right:14px;opacity:0;font-size:13px;z-index:40;background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px;color:var(--muted);pointer-events:none}
 body.tv .tv-exit{opacity:.35;pointer-events:auto}
 body.tv .tv-exit:hover{opacity:1}
@@ -316,6 +322,7 @@ body.tv .tv-exit:hover{opacity:1}
     </tr></thead>
     <tbody id="rows"></tbody>
   </table>
+  <table id="grid2" hidden aria-hidden="true"><thead><tr id="headRow2"></tr></thead><tbody id="rows2"></tbody></table>
   <div class="empty-state" id="empty" hidden><b>Nothing here.</b><span id="emptyText">The floor is clear for today.</span></div>
 </div>
 <p class="print-note" id="printNote"></p>
@@ -527,7 +534,7 @@ body.tv .tv-exit:hover{opacity:1}
       <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
       <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}</td>
       <td><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span></td>
-      <td class="cust">${esc(j.customer)}</td>
+      <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
       <td>${esc(j.rep)}</td>
       <td class="num">${md(j.orderDate)}</td>
       <td class="num"><b>${md(j.dueDate)}</b></td>
@@ -541,8 +548,10 @@ body.tv .tv-exit:hover{opacity:1}
     const list = visibleJobs(), tv = document.body.classList.contains("tv");
     emptyEl.hidden = list.length > 0; $("#grid").hidden = list.length === 0;
     $("#emptyText").textContent = search ? "No jobs match that search." : view === "mine" ? `No late or due jobs assigned to ${ownerFilter || "nobody"}.` : view === "all" || view === "held" || view === "ready" ? "No jobs match these filters." : view === "recent" ? "Nothing has shipped or closed in this window yet. History starts collecting from the first sync after this update." : "The floor is clear for today.";
-    let h = "", lastKey = null, sum = 0;
+    let h = "", lastKey = null, sum = 0, h2 = "";
+    const twoCol = tv && list.length >= 8, half = twoCol ? Math.ceil(list.length / 2) : Infinity; let idx = 0;
     for (const j of list) {
+      if (twoCol && idx++ === half) { h2 = h; h = ""; } // everything so far goes in the left column
       const k = groupKey(j);
       if (k !== null && k !== lastKey) {
         const grp = list.filter(x => groupKey(x) === k); const gs = grp.reduce((s, x) => s + (+x.amount || 0), 0);
@@ -556,7 +565,9 @@ body.tv .tv-exit:hover{opacity:1}
     if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="7">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
     // A sync (or anyone else's note) redraws the rows. Keep a half-typed note and the cursor where they were.
     const act = document.activeElement, keep = act && act.id && act.id.startsWith("note_") ? { id: act.id, s: act.selectionStart, e: act.selectionEnd } : null;
-    rowsEl.innerHTML = h;
+    const g2 = $("#grid2"), r2 = $("#rows2");
+    if (twoCol) { $("#headRow2").innerHTML = $("#headRow").innerHTML; r2.innerHTML = h; rowsEl.innerHTML = h2; g2.hidden = false; }
+    else { rowsEl.innerHTML = h; r2.innerHTML = ""; g2.hidden = true; }
     if (keep) { const inp = document.getElementById(keep.id); if (inp) { inp.focus({ preventScroll: true }); try { inp.setSelectionRange(keep.s, keep.e); } catch {} } }
     const lateN = list.filter(j => j._c.cls === "late").length, todN = list.filter(j => j._c.cls === "today").length;
     $("#printNote").textContent = `Printed ${stamp(Date.now())} ET · ${list.length} jobs · ${lateN} overdue · ${todN} due today${view === "mine" ? ` · ${ownerFilter || "unassigned"} only` : ""}${view === "all" && locFilter ? ` · ${locFilter}` : ""}. Black stripe = overdue, grey stripe = due today. Write initials when the job is on the truck.`;
@@ -680,7 +691,7 @@ body.tv .tv-exit:hover{opacity:1}
     const vh = Math.min(window.innerHeight, de.clientHeight || Infinity, (window.visualViewport && window.visualViewport.height) || Infinity);
     const have = vh * (1 - TV_INSET / 50); // inset applies top and bottom
     b.style.padding = TV_INSET ? `${TV_INSET}vh ${TV_INSET}vw` : "";
-    let z = 1; b.style.zoom = "1";
+    let z = 1; b.style.zoom = "1"; b.style.setProperty("--tvpad", "6px"); // start from the tight layout every pass
     const contentH = () => document.querySelector(".page").getBoundingClientRect().bottom + 18 * z;
     for (let i = 0; i < 6; i++) { // converge: the zoomed layout re-wraps, so measure, adjust, repeat
       const need = contentH(); const ratio = have / need;
@@ -691,6 +702,9 @@ body.tv .tv-exit:hover{opacity:1}
     // Belt and braces for TV browsers (Silk, webOS) whose zoom math differs: if the page can still scroll, it doesn't fit. Shrink until it does.
     const se = document.scrollingElement || de;
     for (let i = 0; i < 16 && z > 0.25 && (se.scrollHeight > se.clientHeight + 2 || se.scrollWidth > se.clientWidth + 2); i++) { z *= 0.96; b.style.zoom = String(z); }
+    // When the width is the limit (two columns side by side), use any spare height by padding the rows out, so the board fills the screen
+    b.style.setProperty("--tvpad", "6px");
+    for (let pad = 7; pad <= 26 && contentH() < have * 0.97; pad++) { b.style.setProperty("--tvpad", pad + "px"); if (contentH() > have) { b.style.setProperty("--tvpad", (pad - 1) + "px"); break; } }
     if (TV_ZOOM !== 1) { z *= TV_ZOOM; b.style.zoom = String(z); }
     if (TVQ.get("tvdebug") === "1") { // ?tvdebug=1 prints what the TV browser reports, to tune tvinset/tvzoom for an odd screen
       let d = document.getElementById("tvdbg"); if (!d) { d = document.createElement("div"); d.id = "tvdbg"; d.style.cssText = "position:fixed;left:8px;bottom:8px;z-index:99;background:#000;color:#0f0;font:14px/1.3 monospace;padding:6px 8px;zoom:1"; document.body.appendChild(d); }
@@ -705,8 +719,19 @@ body.tv .tv-exit:hover{opacity:1}
     let ms = ((27 - et.getHours()) % 24) * 3600000 - et.getMinutes() * 60000 - et.getSeconds() * 1000; if (ms < 600000) ms += 86400000;
     tvReloadTimer = setTimeout(() => { if (document.body.classList.contains("tv")) location.reload(); }, Math.min(ms, 2147000000));
   }
+  // Keep the screen on in TV mode: the Screen Wake Lock where the browser supports it, plus a tiny silent looping
+  // video, which is what stops Fire TV / Silk and most TV browsers from idling to sleep (they treat it as media playing).
+  let wakeLock = null, keepVid = null;
+  async function keepAwake(on) {
+    try { if (on && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request("screen"); wakeLock.addEventListener("release", () => { if (document.body.classList.contains("tv") && document.visibilityState === "visible") keepAwake(true); }); } else if (!on && wakeLock) { await wakeLock.release(); wakeLock = null; } } catch (e) {}
+    if (on) {
+      if (!keepVid) { keepVid = document.createElement("video"); keepVid.id = "keepAwake"; keepVid.muted = true; keepVid.loop = true; keepVid.playsInline = true; keepVid.setAttribute("playsinline", ""); keepVid.innerHTML = `<source src="data:video/webm;base64,GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwEAAAAAAAKyEU2bdLpNu4tTq4QVSalmU6yBoU27i1OrhBZUrmtTrIHYTbuMU6uEElTDZ1OsggEeTbuMU6uEHFO7a1OsggKc7AEAAAAAAABZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmsirXsYMPQkBNgI1MYXZmNjAuMTYuMTAwV0GNTGF2ZjYwLjE2LjEwMESJiECfQAAAAAAAFlSua8GuAQAAAAAAADjXgQFzxYilc/09sPOslJyBACK1nIN1bmSIgQCGhVZfVlA4g4EBI+ODhAvrwgDgibCBELqBEJqBAhJUw2f8c3OgY8CAZ8iaRaOHRU5DT0RFUkSHjUxhdmY2MC4xNi4xMDBzc9ZjwItjxYilc/09sPOslGfIoUWjh0VOQ09ERVJEh5RMYXZjNjAuMzEuMTAyIGxpYnZweGfIoUWjiERVUkFUSU9ORIeTMDA6MDA6MDIuMDAwMDAwMDAwAB9DtnVA9+eBAKOjgQAAgBACAJ0BKhAAEAAARwiFhYiFhIgCAgAMDWAA/v+rUICjlYEAyACxAQABEBAAGAAYWC/0AAgAAKOVgQGQALEBAAEQEAAYABhYL/QACAAAo5WBAlgAsQEAARAQABgAGFgv9AAIAACjlYEDIACxAQABEBAAGAAYWC/0AAgAAKOVgQPoALEBAAEQEAAYABhYL/QACAAAo5WBBLAAsQEAARAQABgAGFgv9AAIAACjlYEFeACxAQABEBAUYABhYL/QACAAAKOVgQZAALEBAAEQEAAYABhYL/QACAAAo5WBBwgAsQEAARAQABgAGFgv9AAIAAAcU7trkbuPs4EAt4r3gQHxggGf8IED" type="video/webm"><source src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAANLbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAnV0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHtbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAAAoAAAAUABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABmG1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAVhzdGJsAAAAuHN0c2QAAAAAAAAAAQAAAKhhdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAALmF2Y0MBQsAe/+EAFmdCwB7ZHsBEAAADAAQAAAMAKDxYuSABAAVoy4PLIAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAtYAAALWAAAABhzdHRzAAAAAAAAAAEAAAAKAAAIAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAAKAAAAAQAAADxzdHN6AAAAAAAAAAAAAAAKAAACgwAAAAoAAAAKAAAACQAAAAkAAAAJAAAACQAAAAkAAAAJAAAACQAAABRzdGNvAAAAAAAAAAEAAAN7AAAAYnVkdGEAAABabWV0YQAAAAAAAAAhaGRscgAAAAAAAAAAbWRpcmFwcGwAAAAAAAAAAAAAAAAtaWxzdAAAACWpdG9vAAAAHWRhdGEAAAABAAAAAExhdmY2MC4xNi4xMDAAAAAIZnJlZQAAAt5tZGF0AAACcAYF//9s3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NCByMzEwOCAzMWUxOWY5IC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyMyAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNlPTB4MToweDExMSBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MCBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTEgbG9va2FoZWFkX3RocmVhZHM9MSBzbGljZWRfdGhyZWFkcz0wIG5yPTAgZGVjaW1hdGU9MSBpbnRlcmxhY2VkPTAgYmx1cmF5X2NvbXBhdD0wIGNvbnN0cmFpbmVkX2ludHJhPTAgYmZyYW1lcz0wIHdlaWdodHA9MCBrZXlpbnQ9MjUwIGtleWludF9taW49NSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTQwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAAtliIQEfJigADYjgAAAAAZBmjgI+oAAAAAGQZpUAj6gAAAABUGaYBH1AAAABUGagBH1AAAABUGaoBH1AAAABUGawBH1AAAABUGa4BH1AAAABUGbABD1AAAABUGbID/U" type="video/mp4">`; document.body.appendChild(keepVid); }
+      keepVid.play().catch(() => {});
+    } else if (keepVid) { keepVid.pause(); keepVid.remove(); keepVid = null; }
+  }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && document.body.classList.contains("tv")) keepAwake(true); });
   function enterTV() {
-    scheduleTVReload();
+    scheduleTVReload(); keepAwake(true);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(fitTV)); // web fonts change row heights; refit once they land
     // TV always shows the production hot list plus the next 2 days (no holds, no order entry), whatever the viewer had selected
     tvPrevView = view === "mine" ? "mine" : "hot"; tvPrevSoon = includeSoon;
@@ -716,7 +741,7 @@ body.tv .tv-exit:hover{opacity:1}
     render(); requestAnimationFrame(fitTV);
     clearInterval(tvTimer); tvTimer = setInterval(fitTV, 5000);
   }
-  function exitTV() { clearTimeout(tvReloadTimer); document.body.classList.remove("tv"); document.body.style.zoom = ""; document.body.style.padding = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
+  function exitTV() { clearTimeout(tvReloadTimer); keepAwake(false); document.body.classList.remove("tv"); document.body.style.zoom = ""; document.body.style.padding = ""; clearInterval(tvTimer); tvTimer = null; if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); includeSoon = tvPrevSoon; st.checked = includeSoon; setView(tvPrevView); }
   $("#tvExit").addEventListener("click", exitTV);
   document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("tv")) exitTV(); });
   document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("tv")) exitTV(); });
