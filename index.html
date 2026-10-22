@@ -181,15 +181,19 @@ tr.detail td{background:color-mix(in srgb,var(--accent) 4%,var(--panel));padding
 body.tv{padding:18px 28px;overflow:hidden;display:block;height:auto}
 body.tv .page{max-width:none;display:block}
 body.tv .bar,body.tv .foot,body.tv .caret,body.tv tr.detail,body.tv .tile.hold,body.tv .tile.ready{display:none}
-body.tv .head{margin-bottom:8px} body.tv .strip{margin-bottom:8px}
-body.tv .logo{width:230px} body.tv h1{font-size:50px} body.tv .eyebrow{font-size:16px} body.tv .fresh{font-size:20px}
-body.tv .tile .big{font-size:60px} body.tv .tile .lbl{font-size:16px} body.tv .tile .sub{font-size:18px}
-body.tv table{font-size:22px} body.tv th{font-size:17px} body.tv td{padding:14px 12px}
-body.tv .job-num{font-size:30px} body.tv .job-num small{font-size:14px}
-body.tv .pill{font-size:19px} body.tv .loc{font-size:18px}
-body.tv .note-preview{font-size:19px;max-width:520px} body.tv .note-preview .nl{max-width:520px} body.tv .note-preview .meta{font-size:15px}
-body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:15px}
-body.tv .owner-chip{font-size:18px}
+body.tv .head{margin-bottom:6px} body.tv .strip{margin-bottom:6px}
+body.tv .logo{width:210px} body.tv h1{font-size:46px} body.tv .eyebrow{font-size:17px;font-weight:700} body.tv .fresh{font-size:20px;font-weight:600}
+body.tv .tile{padding:8px 14px} body.tv .tile .big{font-size:56px} body.tv .tile .lbl{font-size:19px;font-weight:700} body.tv .tile .sub{font-size:21px;font-weight:600}
+/* TV: the fit-to-screen zoom is set by the row count, so the small text has to be big and bold relative to the job number to stay readable from across the floor */
+body.tv table{font-size:27px;font-weight:600} body.tv th{font-size:19px;font-weight:700;padding:8px 10px} body.tv td{padding:6px 10px;vertical-align:middle}
+body.tv .job-num{font-size:34px} body.tv .job-num small{display:none} /* short job # only on the TV: one line per row means a bigger zoom for everything */
+body.tv th:nth-child(11){width:17%} body.tv th:nth-child(5){width:17%}
+body.tv .pill{font-size:21px;border-width:2px} body.tv .loc{font-size:20px;font-weight:700;border-width:1.5px} body.tv .pin-tag{font-size:14px}
+body.tv .cust{font-weight:700} body.tv .num{font-weight:700}
+body.tv .note-preview{font-size:21px;font-weight:500;max-width:330px} body.tv .note-preview .nl{max-width:330px} body.tv .note-preview .meta{font-size:16px;font-weight:600}
+body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:16px}
+body.tv .owner-chip{font-size:20px;font-weight:700} body.tv .owner-chip.none{font-weight:600}
+body.tv tr.total td{font-size:24px;font-weight:700}
 body.tv tr.job{cursor:default}
 body.tv .wrap{overflow:visible;flex:none;min-height:0}
 .tv-exit{position:fixed;top:10px;right:14px;opacity:0;font-size:13px;z-index:40;background:var(--panel);border:1px solid var(--line-strong);border-radius:6px;padding:6px 10px;color:var(--muted);pointer-events:none}
