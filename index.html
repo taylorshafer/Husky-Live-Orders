@@ -136,6 +136,7 @@ tr.closed td{color:var(--muted)} tr.closed td.cust{color:var(--ink)}
 .note-preview{font-size:13.5px;color:var(--ink);max-width:340px;min-width:0;display:inline-block}
 .note-preview .meta{color:var(--muted);font-size:12px}
 .note-preview .nl{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px} .note-preview .nl+.nl{margin-top:2px}
+.note-preview .tvall{display:none}
 .note-preview .more{display:none;color:var(--accent);font-size:12px;font-weight:600;margin-left:4px}
 .caret{color:var(--muted);font-size:12px;padding-left:4px}
 th.print-only,td.print-only{display:none}
@@ -199,7 +200,8 @@ body.tv .cust{font-weight:700} body.tv .num{font-weight:700}
 body.tv .note-preview{font-size:17px;font-weight:600;line-height:1.2;width:270px;max-width:270px;white-space:normal;vertical-align:middle}
 body.tv .note-preview .nl{max-width:270px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}
 body.tv .note-preview .meta{display:none}
-body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:14px}
+body.tv .note-preview .nl{display:none}
+body.tv .note-preview .tvall{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;white-space:normal;max-width:270px} body.tv .note-preview .sep{color:var(--muted);font-weight:400;padding:0 2px}
 body.tv .owner-chip{font-size:20px;font-weight:700} body.tv .owner-chip.none{font-weight:600}
 body.tv tr.total td{font-size:24px;font-weight:700}
 body.tv tr.job{cursor:default}
@@ -536,7 +538,9 @@ body.tv .tv-exit:hover{opacity:1}
     // Every note, newest first, each signed, so a job touched by several people reads as a conversation
     // One clipped line per note, newest first (hover for the full text; the expanded panel shows everything). TV shows only the newest.
     const lines = list.slice().reverse().map((x, i) => `<span class="nl" title="${esc(x.text)} · ${esc(x.by || "")} ${stamp(x.at)}">${esc(x.text)} <span class="meta">· ${esc(x.by || "")} ${stamp(x.at)}</span>${i === 0 && list.length > 1 ? `<span class="more">+${list.length - 1}</span>` : ""}</span>`);
-    return `<span class="note-preview">${lines.join("")}</span>`;
+    // TV shows every note on the job run together, newest first, separated by a bar
+    const all = list.slice().reverse().map(x => esc(x.text)).join(` <span class="sep">|</span> `);
+    return `<span class="note-preview">${lines.join("")}<span class="tvall">${all}</span></span>`;
   }
   function rowHtml(j, isOpen) {
     const n = notes[j.orderNum] || {}, c = j._c;
