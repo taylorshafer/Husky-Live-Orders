@@ -188,15 +188,18 @@ body.tv .tile{padding:8px 14px} body.tv .tile .big{font-size:56px} body.tv .tile
 /* TV: the fit-to-screen zoom is set by the row count, so the small text has to be big and bold relative to the job number to stay readable from across the floor */
 body.tv table{font-size:27px;font-weight:600} body.tv th{font-size:19px;font-weight:700;padding:8px 10px} body.tv td{padding:var(--tvpad,6px) 7px;vertical-align:middle}
 body.tv .job-num{font-size:34px} body.tv .job-num small{display:none} /* short job # only on the TV: one line per row means a bigger zoom for everything */
-body.tv th:nth-child(6),body.tv td:nth-child(6),body.tv th:nth-child(7),body.tv td:nth-child(7){display:none} /* TV: no Rep, no Ordered */
+body.tv th:nth-child(6),body.tv td:nth-child(6),body.tv th:nth-child(7),body.tv td:nth-child(7),body.tv th:nth-child(10),body.tv td:nth-child(10){display:none} /* TV: no Rep, no Ordered, no Owner */
 body.tv td,body.tv th{white-space:nowrap} /* no wrapping on the TV: the fit loop sizes the zoom so both columns fit side by side */
 body.tv .owner-chip.none{font-size:0} body.tv .owner-chip.none::before{content:"–";font-size:21px} /* TV: unassigned shows as a dash to keep the column narrow */
 body.tv .ct{display:inline-block;max-width:215px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 #keepAwake{position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
 body.tv .pill{font-size:20px;border-width:2px;padding:3px 6px} body.tv .loc{font-size:18px;font-weight:700;border-width:1.5px;padding:2px 5px} body.tv .pin-tag{font-size:14px}
 body.tv .cust{font-weight:700} body.tv .num{font-weight:700}
-body.tv .note-preview{font-size:21px;font-weight:500;max-width:150px} body.tv .note-preview .nl{max-width:150px} body.tv .note-preview .meta{font-size:16px;font-weight:600}
-body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:16px}
+/* TV notes: smaller type, wrapped to two lines in the room the Owner column used to take; who/when is left off so more of the note fits */
+body.tv .note-preview{font-size:17px;font-weight:600;line-height:1.2;width:270px;max-width:270px;white-space:normal;vertical-align:middle}
+body.tv .note-preview .nl{max-width:270px;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;text-overflow:clip}
+body.tv .note-preview .meta{display:none}
+body.tv .note-preview .nl+.nl{display:none} body.tv .note-preview .more{display:inline;font-size:14px}
 body.tv .owner-chip{font-size:20px;font-weight:700} body.tv .owner-chip.none{font-weight:600}
 body.tv tr.total td{font-size:24px;font-weight:700}
 body.tv tr.job{cursor:default}
@@ -571,7 +574,9 @@ body.tv .tv-exit:hover{opacity:1}
       h += rowHtml(j, isOpen); if (isOpen) h += detailRow(j, notes[j.orderNum] || {});
       sum += +j.amount || 0;
     }
-    if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="7">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
+    // On the TV five columns are hidden, so the totals row has to span the eight that are left or it pads the table with empty columns
+    if (list.length && tv) h += `<tr class="total"><td class="stripe"></td><td colspan="5">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td></td></tr>`;
+    else if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="7">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
     // A sync (or anyone else's note) redraws the rows. Keep a half-typed note and the cursor where they were.
     const act = document.activeElement, keep = act && act.id && act.id.startsWith("note_") ? { id: act.id, s: act.selectionStart, e: act.selectionEnd } : null;
     const g2 = $("#grid2"), r2 = $("#rows2");
