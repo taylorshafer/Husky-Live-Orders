@@ -69,6 +69,7 @@ h1{font-family:var(--display);font-weight:700;font-size:30px;line-height:1;margi
 /* Toolbar */
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
 .bar.sub{margin-top:-2px}
+#soonWrap{display:none!important}
 .bar.actions{flex-wrap:nowrap;margin-top:-2px} .bar.actions .me{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
 .seg button{background:var(--panel);border:0;padding:7px 13px;font-weight:600;font-family:var(--display);font-size:16px;letter-spacing:.03em;text-transform:uppercase}
@@ -366,7 +367,7 @@ body.tv .tv-exit:hover{opacity:1}
 
   // ---------- state ----------
   let jobs = [], closedJobs = [], notes = {}, meta = null; // jobs = open in SOS (any stage); closedJobs = history
-  let view = "hot", ownerFilter = "", includeSoon = false, openJob = null;
+  let view = "hot", ownerFilter = "", includeSoon = true, openJob = null;
   let recentDays = 30;
   let drafts = {}; try { drafts = JSON.parse(localStorage.getItem("hotlist.drafts") || "{}") || {}; } catch { drafts = {}; }
   function saveDrafts() { try { localStorage.setItem("hotlist.drafts", JSON.stringify(drafts)); } catch {} }
@@ -377,6 +378,7 @@ body.tv .tv-exit:hover{opacity:1}
   try {
     includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || "";
     groupBy = localStorage.getItem("hl.group") || "location";
+    includeSoon = true; // always on now; the checkbox was removed when the hot list became a Top 20
     recentDays = +localStorage.getItem("hl.recent") || 30;
   } catch (e) {}
 
@@ -434,16 +436,16 @@ body.tv .tv-exit:hover{opacity:1}
         if (statusFilter === "later" && !(c.delta > 6)) continue;
         if (locFilter && j.location !== locFilter) continue;
       } else {
-        if (c.cls === "later") { if (view === "hot" && tvMode()) { extra.push({ ...j, _c: c, owner: notes[j.orderNum]?.owner || "" }); } continue; }
+        if (c.cls === "later") { if (view === "hot") { extra.push({ ...j, _c: c, owner: notes[j.orderNum]?.owner || "" }); } continue; }
         if (c.cls === "soon" && !includeSoon) continue;
         if (c.cls === "shipped" && c.delta > 0 && !(includeSoon && c.delta <= 2)) continue;
         if (view === "mine" && (notes[j.orderNum]?.owner || "") !== ownerFilter) continue;
       }
       out.push({ ...j, _c: c, owner: notes[j.orderNum]?.owner || "" });
     }
-    // TV: Glenn wants at least TV_MIN jobs on the screen at all times. After the late / due today / next-2-days jobs,
+    // Hot list (desk and TV): Glenn wants at least TV_MIN jobs listed at all times. After the late / due today / next-2-days jobs,
     // top the list up with the next jobs in due-date order ("Top 20"), so a quiet day still shows what's coming.
-    if (view === "hot" && tvMode() && out.length < TV_MIN && extra.length) {
+    if (view === "hot" && out.length < TV_MIN && extra.length) {
       extra.sort((a, b) => a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.orderNum.localeCompare(b.orderNum));
       for (const j of extra) { if (out.length >= TV_MIN) break; out.push(j); }
     }
@@ -512,7 +514,7 @@ body.tv .tv-exit:hover{opacity:1}
     dot.className = "dot " + (age > 90 ? "stale" : "ok");
   }
   function renderHeader() {
-    const titles = { hot: ["In Production", document.body.classList.contains("tv") ? `Top ${TV_MIN} · Late, Due Today & Next Up` : "Late & Due Today Hot List"], all: ["In Production", "All Open Orders"], held: ["Not Released", "On Hold & Order Entry"], ready: ["Finished", "Ready to Ship"], mine: ["In Production", `${ownerFilter || "Unassigned"}'s Jobs`], recent: ["History", `Shipped & Closed · Last ${recentDays === 365 ? "Year" : recentDays + " Days"}`] };
+    const titles = { hot: ["In Production", `Top ${TV_MIN} · Late, Due Today & Next Up`], all: ["In Production", "All Open Orders"], held: ["Not Released", "On Hold & Order Entry"], ready: ["Finished", "Ready to Ship"], mine: ["In Production", `${ownerFilter || "Unassigned"}'s Jobs`], recent: ["History", `Shipped & Closed · Last ${recentDays === 365 ? "Year" : recentDays + " Days"}`] };
     const [e, t] = titles[view] || titles.hot; $("#eyebrow").textContent = e; $("#pageTitle").textContent = t;
     for (const th of document.querySelectorAll("th.sortable")) { const on = th.dataset.sort === sortKey; th.setAttribute("aria-sort", on ? (sortDir > 0 ? "ascending" : "descending") : "none"); th.querySelector(".arrow")?.remove(); if (on) th.insertAdjacentHTML("beforeend", `<span class="arrow">${sortDir > 0 ? "▲" : "▼"}</span>`); }
   }
@@ -647,7 +649,7 @@ body.tv .tv-exit:hover{opacity:1}
   let searchT; $("#search").addEventListener("input", e => { clearTimeout(searchT); searchT = setTimeout(() => { search = e.target.value.trim(); renderRows(); }, 120); });
   const of = $("#ownerFilter"); of.innerHTML = PEOPLE.map(p => `<option value="${p}">${p}</option>`).join("") + `<option value="">Unassigned</option>`;
   of.value = ownerFilter; of.addEventListener("change", () => { ownerFilter = of.value; try { localStorage.setItem("hl.owner", ownerFilter); } catch (e) {} renderHeader(); renderRows(); });
-  const st = $("#soonToggle"); st.checked = includeSoon; st.addEventListener("change", () => { includeSoon = st.checked; try { localStorage.setItem("hl.soon", includeSoon ? "1" : "0"); } catch (e) {} render(); });
+  const st = $("#soonToggle"); st.checked = includeSoon; st.addEventListener("change", () => { includeSoon = true; try { localStorage.setItem("hl.soon", includeSoon ? "1" : "0"); } catch (e) {} render(); });
   const rd = $("#recentDays"); rd.value = String(recentDays); rd.addEventListener("change", () => { recentDays = +rd.value || 30; try { localStorage.setItem("hl.recent", String(recentDays)); } catch (e) {} render(); });
   $("#printBtn").addEventListener("click", () => { openJob = null; renderRows(); window.print(); });
   // Export exactly what's on screen: same view, filters, search and sort as the table, one row per job, notes flattened.
