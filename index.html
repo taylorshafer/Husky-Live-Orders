@@ -250,7 +250,7 @@ body.tv .tv-exit:hover{opacity:1}
   <button type="button" class="tile late" data-jump="late"><span class="lbl">Overdue</span><span class="big num" id="tLateN">–</span><span class="sub num" id="tLateD">&nbsp;</span></button>
   <button type="button" class="tile today" data-jump="today"><span class="lbl">Due today</span><span class="big num" id="tTodayN">–</span><span class="sub num" id="tTodayD">&nbsp;</span></button>
   <button type="button" class="tile soon" data-jump="soon"><span class="lbl">Next 2 days</span><span class="big num" id="tSoonN">–</span><span class="sub num" id="tSoonD">&nbsp;</span></button>
-  <button type="button" class="tile" data-jump="all"><span class="lbl">All in production</span><span class="big num" id="tAllN">–</span><span class="sub num" id="tAllD">&nbsp;</span></button>
+  <button type="button" class="tile" data-jump="all"><span class="lbl">All open orders</span><span class="big num" id="tAllN">–</span><span class="sub num" id="tAllD">&nbsp;</span></button>
   <button type="button" class="tile ready" data-jump="ready" title="Finished and waiting to go out. Click to open the Ready to ship view."><span class="lbl">Ready to ship</span><span class="big num" id="tReadyN">–</span><span class="sub num" id="tReadyD">&nbsp;</span></button>
   <button type="button" class="tile hold" data-jump="held" title="On hold or still in order entry. Click to open the Held view."><span class="lbl">Held / not released</span><span class="big num" id="tHoldN">–</span><span class="sub num" id="tHoldD">&nbsp;</span></button>
 </section>
@@ -493,7 +493,8 @@ body.tv .tv-exit:hover{opacity:1}
     $("#tLateN").textContent = t.late[0]; $("#tLateD").textContent = money(t.late[1]);
     $("#tTodayN").textContent = t.today[0]; $("#tTodayD").textContent = money(t.today[1]);
     $("#tSoonN").textContent = t.soon[0]; $("#tSoonD").textContent = money(t.soon[1]);
-    $("#tAllN").textContent = t.all[0]; $("#tAllD").textContent = money0(t.all[1]) + " on the floor";
+    // Every open order that hasn't shipped: on the floor + ready to ship + on hold + order entry (not just what the board lists)
+    $("#tAllN").textContent = t.all[0] + ready + hold + oe; $("#tAllD").textContent = `${money0(t.all[1] + readyAmt + heldAmt)} open · ${t.all[0]} on the floor`;
     $("#tReadyN").textContent = ready; $("#tReadyD").textContent = money(readyAmt);
     $("#tHoldN").textContent = hold + oe; $("#tHoldD").textContent = `${hold} on hold · ${oe} order entry · ${money0(heldAmt)}`;
     for (const b of document.querySelectorAll(".tile[data-jump]")) {
