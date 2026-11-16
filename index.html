@@ -422,7 +422,7 @@ body.tv .tv-exit:hover{opacity:1}
   const pool = () => view === "recent" ? [...jobs.filter(j => j.stage === "shipped" && !isPinned(j)), ...closedJobs.filter(j => !isPinned(j))] : view === "held" ? jobs.filter(isHeld) : view === "ready" ? jobs.filter(j => j.stage === "ready" && !isPinned(j)) : [...jobs.filter(j => j.stage === "production" || isPinned(j)), ...closedJobs.filter(isPinned)];
   const matchesSearch = j => { if (!search) return true; const q = search.toLowerCase(); return j.orderNum.toLowerCase().includes(q) || j.customer.toLowerCase().includes(q) || j.rep.toLowerCase().includes(q) || (notes[j.orderNum]?.owner || "").toLowerCase().includes(q); };
   function visibleJobs() {
-    const out = [];
+    const out = [], extra = [];
     for (const j of pool()) {
       const c = classify(j); if (!matchesSearch(j)) continue;
       if (view === "recent") {
@@ -434,12 +434,18 @@ body.tv .tv-exit:hover{opacity:1}
         if (statusFilter === "later" && !(c.delta > 6)) continue;
         if (locFilter && j.location !== locFilter) continue;
       } else {
-        if (c.cls === "later") continue;
+        if (c.cls === "later") { if (view === "hot" && tvMode()) { extra.push({ ...j, _c: c, owner: notes[j.orderNum]?.owner || "" }); } continue; }
         if (c.cls === "soon" && !includeSoon) continue;
         if (c.cls === "shipped" && c.delta > 0 && !(includeSoon && c.delta <= 2)) continue;
         if (view === "mine" && (notes[j.orderNum]?.owner || "") !== ownerFilter) continue;
       }
       out.push({ ...j, _c: c, owner: notes[j.orderNum]?.owner || "" });
+    }
+    // TV: Glenn wants at least TV_MIN jobs on the screen at all times. After the late / due today / next-2-days jobs,
+    // top the list up with the next jobs in due-date order ("Top 20"), so a quiet day still shows what's coming.
+    if (view === "hot" && tvMode() && out.length < TV_MIN && extra.length) {
+      extra.sort((a, b) => a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : a.orderNum.localeCompare(b.orderNum));
+      for (const j of extra) { if (out.length >= TV_MIN) break; out.push(j); }
     }
     const statusRank = c => ({ late: 0, today: 1, soon: 2, later: 3, shipped: 4 }[c.cls]);
     const gcmp = (a, b) => { // grouped views sort by the group first so each group appears once
@@ -505,7 +511,7 @@ body.tv .tv-exit:hover{opacity:1}
     dot.className = "dot " + (age > 90 ? "stale" : "ok");
   }
   function renderHeader() {
-    const titles = { hot: ["In Production", document.body.classList.contains("tv") ? "Late, Due Today & Next 2 Days" : "Late & Due Today Hot List"], all: ["In Production", "All Open Orders"], held: ["Not Released", "On Hold & Order Entry"], ready: ["Finished", "Ready to Ship"], mine: ["In Production", `${ownerFilter || "Unassigned"}'s Jobs`], recent: ["History", `Shipped & Closed · Last ${recentDays === 365 ? "Year" : recentDays + " Days"}`] };
+    const titles = { hot: ["In Production", document.body.classList.contains("tv") ? `Top ${TV_MIN} · Late, Due Today & Next Up` : "Late & Due Today Hot List"], all: ["In Production", "All Open Orders"], held: ["Not Released", "On Hold & Order Entry"], ready: ["Finished", "Ready to Ship"], mine: ["In Production", `${ownerFilter || "Unassigned"}'s Jobs`], recent: ["History", `Shipped & Closed · Last ${recentDays === 365 ? "Year" : recentDays + " Days"}`] };
     const [e, t] = titles[view] || titles.hot; $("#eyebrow").textContent = e; $("#pageTitle").textContent = t;
     for (const th of document.querySelectorAll("th.sortable")) { const on = th.dataset.sort === sortKey; th.setAttribute("aria-sort", on ? (sortDir > 0 ? "ascending" : "descending") : "none"); th.querySelector(".arrow")?.remove(); if (on) th.insertAdjacentHTML("beforeend", `<span class="arrow">${sortDir > 0 ? "▲" : "▼"}</span>`); }
   }
@@ -684,7 +690,8 @@ body.tv .tv-exit:hover{opacity:1}
   //   ?tvinset=4   keep a 4% margin on every edge (TVs that overscan and clip the edges, e.g. Insignia)
   //   ?tvzoom=0.9  scale the fitted board by 0.9 on top (a manual nudge if a TV browser still clips)
   let TVQ = new URLSearchParams(location.search);
-  const TV_AUTO = TVQ.get("tv") === "1";
+  const TV_AUTO = TVQ.get("tv") === "1", TV_MIN = Math.min(60, Math.max(0, parseInt(TVQ.get("tvmin")) || 20)); // ?tvmin=25 to change the floor
+  const tvMode = () => document.body.classList.contains("tv");
   const tvInset = () => Math.min(15, Math.max(0, parseFloat(TVQ.get("tvinset")) || 0)), tvZoom = () => Math.min(1.5, Math.max(0.5, parseFloat(TVQ.get("tvzoom")) || 1));
   // The TV Mode button writes the TV address into the address bar (and Exit takes it back out), so a bookmark or a
   // reload taken while in TV mode comes straight back to TV mode: .../?tv=1&tvinset=5
@@ -720,6 +727,18 @@ body.tv .tv-exit:hover{opacity:1}
     }
   }
   let tvPrevView = "hot", tvPrevSoon = false;
+  // Self-update: every 5 minutes ask the server (cache bypassed) whether index.html changed since this page loaded.
+  // In TV mode reload right away so the board picks up a new version on its own; on a desk, only when nobody is
+  // mid-note and the tab isn't being looked at, so a deploy never interrupts someone.
+  let pageTag = null;
+  async function pageVersionTag() { try { const r = await fetch(location.pathname + "?v=" + Date.now(), { method: "HEAD", cache: "no-store" }); return r.ok ? (r.headers.get("etag") || r.headers.get("last-modified") || "") : null; } catch { return null; } }
+  pageVersionTag().then(t => { pageTag = t; });
+  setInterval(async () => {
+    const t = await pageVersionTag(); if (!t || !pageTag) { if (t && !pageTag) pageTag = t; return; }
+    if (t === pageTag) return;
+    const busy = openJob || Object.keys(drafts).length || document.activeElement && /^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName);
+    if (tvMode() || (!busy && document.visibilityState === "hidden")) location.reload();
+  }, 5 * 60000);
   let tvReloadTimer = null;
   function scheduleTVReload() { // next 3:00 AM Eastern, at least 10 minutes out
     clearTimeout(tvReloadTimer);
