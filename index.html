@@ -65,6 +65,7 @@ h1{font-family:var(--display);font-weight:700;font-size:30px;line-height:1;margi
 .tile .lbl{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--muted);font-weight:600}
 .tile .big{font-family:var(--display);font-weight:700;font-size:34px;line-height:1}
 .tile .sub{font-size:13px;color:var(--muted)}
+.locstrip{display:none}
 
 /* Toolbar */
 .bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:8px}
@@ -182,8 +183,12 @@ tr.detail td{background:color-mix(in srgb,var(--accent) 4%,var(--panel));padding
 /* TV mode: every job on one screen, board zoomed to the screen height */
 body.tv{padding:18px 28px;overflow:hidden;display:block;height:auto}
 body.tv .page{max-width:none;display:block}
-body.tv .bar,body.tv .foot,body.tv .caret,body.tv tr.detail,body.tv .tile.hold,body.tv .tile.ready{display:none}
+body.tv .bar,body.tv .foot,body.tv .caret,body.tv tr.detail,body.tv .tile.hold,body.tv .tile.ready,body.tv .tile.soon{display:none}
 body.tv .head{margin-bottom:6px} body.tv .strip{margin-bottom:6px}
+/* TV: one small tile per location (orders big, dollars under), the morning Open Sales Orders report at a glance */
+body.tv .locstrip{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px;margin-bottom:6px}
+body.tv .locstrip .tile{padding:5px 10px;border-left-width:5px} body.tv .locstrip .tile.off{border-left-color:var(--muted)}
+body.tv .locstrip .lbl{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.04em} body.tv .locstrip .big{font-size:40px} body.tv .locstrip .sub{font-size:18px}
 body.tv .logo{width:210px} body.tv h1{font-size:46px} body.tv .eyebrow{font-size:17px;font-weight:700} body.tv .fresh{font-size:20px;font-weight:600}
 body.tv .tile{padding:8px 14px} body.tv .tile .big{font-size:56px} body.tv .tile .lbl{font-size:19px;font-weight:700} body.tv .tile .sub{font-size:21px;font-weight:600}
 /* TV: the fit-to-screen zoom is set by the row count, so the small text has to be big and bold relative to the job number to stay readable from across the floor */
@@ -260,6 +265,7 @@ body.tv .tv-exit:hover{opacity:1}
   <button type="button" class="tile ready" data-jump="ready" title="Finished and waiting to go out. Click to open the Ready to ship view."><span class="lbl">Ready to ship</span><span class="big num" id="tReadyN">–</span><span class="sub num" id="tReadyD">&nbsp;</span></button>
   <button type="button" class="tile hold" data-jump="held" title="On hold or still in order entry. Click to open the Held view."><span class="lbl">Held / not released</span><span class="big num" id="tHoldN">–</span><span class="sub num" id="tHoldD">&nbsp;</span></button>
 </section>
+<section class="locstrip" id="locStrip" aria-label="Open orders by location"></section>
 
 <div class="bar" role="toolbar" aria-label="Views">
   <div class="seg" id="viewSeg">
@@ -504,6 +510,19 @@ body.tv .tv-exit:hover{opacity:1}
     $("#tAllN").textContent = t.all[0] + ready + hold + oe; $("#tAllD").textContent = `${money0(t.all[1] + readyAmt + heldAmt)} open · ${t.all[0]} on the floor`;
     $("#tReadyN").textContent = ready; $("#tReadyD").textContent = money(readyAmt);
     $("#tHoldN").textContent = hold + oe; $("#tHoldD").textContent = `${hold} on hold · ${oe} order entry · ${money0(heldAmt)}`;
+    // Per-location recap (TV): every open order that hasn't shipped, by where it sits; all holds roll into one tile
+    const by = new Map();
+    for (const j of jobs) {
+      if (j.stage === "shipped") continue;
+      const key = j.stage === "production" || j.stage === "ready" || j.stage === "order_entry" ? j.location : "ON HOLD";
+      const e = by.get(key) || [0, 0]; e[0]++; e[1] += +j.amount || 0; by.set(key, e);
+    }
+    const rank = k => { const i = LOC_ORDER.indexOf(k); return i < 0 ? 99 : i; };
+    $("#locStrip").innerHTML = [...by.keys()].sort((a, b) => (rank(a) - rank(b)) || a.localeCompare(b)).map(k => {
+      const [n, amt] = by.get(k), off = k === "ON HOLD" || k === "ORDER ENTRY";
+      const name = k === "ON HOLD" ? k : k.replace(/^ON /, "");
+      return `<div class="tile${off ? " off" : ""}"><span class="lbl">${esc(name)}</span><span class="big num">${n}</span><span class="sub num">${money0(amt)}</span></div>`;
+    }).join("");
     for (const b of document.querySelectorAll(".tile[data-jump]")) {
       const k = b.dataset.jump;
       b.setAttribute("aria-pressed", String(k === "held" ? view === "held" : k === "ready" ? view === "ready" : (view === "all" && statusFilter === (k === "all" ? "all" : k === "soon" ? "week" : k))));
