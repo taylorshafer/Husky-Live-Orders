@@ -184,6 +184,8 @@ table.od-lines th{position:static;text-align:left;font-size:11px;padding:6px 10p
 table.od-lines td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;background:none;white-space:normal} table.od-lines tr:last-child td{border-bottom:0}
 .od-item{white-space:nowrap} .od-cls{display:inline-block;margin-left:8px;font-size:11px;font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;color:var(--muted);font-weight:600}
 .od-desc{white-space:pre-line!important;color:var(--ink,inherit);max-width:70ch} .od-msg{font-size:13px;margin:8px 0 0;white-space:pre-line}
+.od-desc{white-space:normal!important} .od-raw{white-space:pre-line} .od-lead{font-weight:600;margin-bottom:6px}
+.od-specs{display:flex;flex-wrap:wrap;gap:4px 18px;margin:0} .od-specs div{display:flex;gap:6px;align-items:baseline} .od-specs dt{color:var(--muted);font-size:12px} .od-specs dd{margin:0;font-weight:500}
 
 .empty-state{padding:44px 20px;text-align:center;color:var(--muted)}
 .empty-state b{display:block;font-family:var(--display);font-size:24px;color:var(--ink);font-weight:700;margin-bottom:4px}
@@ -365,9 +367,9 @@ html[data-ui="new"] .wrap{border:1px solid var(--line);border-radius:var(--r);bo
 html[data-ui="new"] th{text-transform:none;letter-spacing:0;font-size:12px;font-weight:500;padding:11px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
 html[data-ui="new"] th.sortable[aria-sort="ascending"],html[data-ui="new"] th.sortable[aria-sort="descending"]{color:var(--ink)}
 html[data-ui="new"] td{padding:12px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
-html[data-ui="new"] tr.job:hover td{background:var(--hover)}
-html[data-ui="new"] tr.job:focus-visible{outline:0} html[data-ui="new"] tr.job:focus-visible td{background:color-mix(in srgb,var(--accent) 6%,transparent)}
-html[data-ui="new"] td.stripe,html[data-ui="new"] th.stripe{width:3px;padding:0}
+html[data-ui="new"] tr.job:hover td:not(.stripe){background:var(--hover)}
+html[data-ui="new"] tr.job:focus-visible{outline:0} html[data-ui="new"] tr.job:focus-visible td:not(.stripe){background:color-mix(in srgb,var(--accent) 6%,transparent)}
+html[data-ui="new"] td.stripe,html[data-ui="new"] th.stripe{width:4px;padding:0} html[data-ui="new"] td.stripe::before,html[data-ui="new"] th.stripe::before{content:"";display:block;width:4px}
 html[data-ui="new"] tr.soon td.stripe,html[data-ui="new"] tr.hold td.stripe,html[data-ui="new"] tr.oe td.stripe,html[data-ui="new"] tr.ready td.stripe,html[data-ui="new"] tr.shipped td.stripe,html[data-ui="new"] tr.closed td.stripe{background:transparent}
 html[data-ui="new"] tr.hold td,html[data-ui="new"] tr.oe td{background:transparent}
 html[data-ui="new"] .job-num{font-size:15px;font-weight:600;letter-spacing:-.01em;line-height:1.2}
@@ -445,9 +447,15 @@ html[data-ui="new"] .od-facts dd{font-size:14px;font-weight:500}
 html[data-ui="new"] table.od-lines{border:1px solid var(--line);border-radius:11px;border-collapse:separate;border-spacing:0;overflow:hidden;font-size:13.5px}
 html[data-ui="new"] table.od-lines th{background:var(--hover);font-size:12px;padding:9px 14px;border-bottom:1px solid var(--line)}
 html[data-ui="new"] table.od-lines td{padding:12px 14px;vertical-align:top}
-html[data-ui="new"] .od-item{white-space:normal;min-width:170px} html[data-ui="new"] .od-item b{display:block;font-weight:600}
+html[data-ui="new"] .od-item{white-space:normal;min-width:150px;width:24%} html[data-ui="new"] .od-item b{display:block;font-weight:600}
 html[data-ui="new"] .od-cls{margin:5px 0 0;border:0;background:var(--soft);border-radius:5px;padding:1px 7px;font-size:11px;text-transform:none;letter-spacing:0;font-family:var(--body)}
-html[data-ui="new"] .od-desc{color:var(--muted);line-height:1.5}
+html[data-ui="new"] .od-desc{color:var(--ink);line-height:1.45}
+html[data-ui="new"] .od-lead{font-weight:500;font-size:13.5px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px dashed var(--line-strong);color:var(--ink)}
+html[data-ui="new"] .od-specs{display:grid;grid-template-columns:1fr;gap:5px}
+html[data-ui="new"] .od-specs div{flex-direction:row;gap:12px;align-items:baseline;min-width:0}
+html[data-ui="new"] .od-specs div:has(dt:is(:not(:empty))){min-width:0}
+html[data-ui="new"] .od-specs dt{font-size:12.5px;color:var(--muted);flex:0 0 96px} html[data-ui="new"] .od-specs dd{font-size:13.5px;font-weight:500;color:var(--ink);overflow-wrap:anywhere}
+html[data-ui="new"] .od-raw{color:var(--muted)}
 html[data-ui="new"] .od-msg{background:var(--soft);border-radius:10px;padding:10px 12px;margin-top:12px}
 
 /* TV: same quiet palette, Inter Tight so the two job columns keep their size */
@@ -473,6 +481,40 @@ html[data-ui="new"] body.tv .cust{font-weight:600} html[data-ui="new"] body.tv .
 html[data-ui="new"] body.tv .note-preview{font-size:16px;font-weight:500;font-family:var(--body)}
 html[data-ui="new"] body.tv tr.total td{font-size:22px;font-weight:600}
 html[data-ui="new"] body.tv #grid2{border-left:1px solid var(--line-strong)}
+/* --- Round 2 (computer view): one tidy header, one toolbar row, a single stats card, uniform one-line rows --- */
+html[data-ui="new"] body:not(.tv) .titles,html[data-ui="new"] body:not(.tv) .foot{display:none}
+html[data-ui="new"] tr.late:hover td.stripe{background:var(--late)} html[data-ui="new"] tr.today:hover td.stripe{background:var(--today)}
+html[data-ui="new"] .head{margin-bottom:16px;flex-wrap:nowrap}
+html[data-ui="new"] .head-right{display:flex;align-items:center;gap:10px;min-width:0;flex-wrap:wrap;justify-content:flex-end}
+html[data-ui="new"] .userbox{display:flex;align-items:center;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:3px 4px 3px 14px;box-shadow:var(--shadow)}
+html[data-ui="new"] .userbox .me{font-size:0;margin-right:6px} html[data-ui="new"] .userbox .me b{font-size:13px;font-weight:600}
+html[data-ui="new"] .userbox .btn.quiet{padding:5px 11px;border-radius:999px;font-size:12.5px}
+html[data-ui="new"] body.tv .userbox{display:none}
+html[data-ui="new"] .bar[role="toolbar"]{flex-wrap:wrap}
+/* Stats: one card, six columns, hairline dividers */
+html[data-ui="new"] body:not(.tv) .strip{gap:0;background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:14px}
+html[data-ui="new"] body:not(.tv) .tile{border:0;border-radius:0;box-shadow:none;background:transparent;padding:14px 20px 14px;gap:2px;position:relative;transition:background .15s}
+html[data-ui="new"] body:not(.tv) .tile+.tile::before{content:"";position:absolute;left:0;top:16px;bottom:16px;width:1px;background:var(--line)}
+html[data-ui="new"] body:not(.tv) button.tile:hover{background:var(--hover);box-shadow:none}
+html[data-ui="new"] body:not(.tv) .tile[aria-pressed="true"]{box-shadow:inset 0 -2px 0 var(--ink);background:var(--hover);border:0}
+html[data-ui="new"] body:not(.tv) .tile .big{font-size:26px;line-height:1.15}
+html[data-ui="new"] body:not(.tv) .tile .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+html[data-ui="new"] .tile.late.has .big{color:var(--late-ink)} html[data-ui="new"] .tile.today.has .big{color:var(--today-ink)}
+html[data-ui="new"] .tile.late:not(.has) .lbl::before,html[data-ui="new"] .tile.today:not(.has) .lbl::before{background:var(--line-strong)}
+/* Rows: every row one line, same height; long text is cut with an ellipsis (hover shows the rest, the popup shows everything) */
+html[data-ui="new"] body:not(.tv) tr.job td{height:54px;padding-top:0;padding-bottom:0;white-space:nowrap}
+html[data-ui="new"] body:not(.tv) .ct{display:inline-block;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+html[data-ui="new"] body:not(.tv) td.c-rep{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+html[data-ui="new"] body:not(.tv) td.c-notes{max-width:0;width:26%}
+html[data-ui="new"] body:not(.tv) td.c-notes{display:table-cell} html[data-ui="new"] body:not(.tv) td.c-notes .pin-tag.short{margin:0 8px 0 0;vertical-align:middle}
+html[data-ui="new"] body:not(.tv) .note-preview{display:inline-flex;align-items:center;gap:6px;max-width:100%;vertical-align:middle;min-width:0}
+html[data-ui="new"] body:not(.tv) td.c-notes:has(.pin-tag.short) .note-preview{max-width:calc(100% - 84px)}
+html[data-ui="new"] body:not(.tv) .note-preview .nl{max-width:none;min-width:0;flex:1 1 auto;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-ui="new"] body:not(.tv) .note-preview .nl+.nl{display:none}
+html[data-ui="new"] body:not(.tv) .note-preview .nl .meta{display:none}
+html[data-ui="new"] body:not(.tv) .note-preview .more{display:inline-block;flex:none;background:var(--soft);color:var(--muted);border-radius:999px;padding:1px 7px;font-size:11.5px;font-weight:500;margin-left:6px}
+html[data-ui="new"] body:not(.tv) .note-preview.empty .meta{color:var(--line-strong)}
+html[data-ui="new"] body:not(.tv) td.c-notes .pin-tag.short+.note-preview.empty{display:none}
 html[data-ui="new"].modal-open body{overflow:hidden}
 }
 /* NEWUI-END */
@@ -740,6 +782,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       else if (j.stage === "order_entry") { oe++; heldAmt += +j.amount || 0; }
       else if (j.stage !== "shipped") { hold++; heldAmt += +j.amount || 0; }
     }
+    $("#tLateN").closest(".tile").classList.toggle("has", t.late[0] > 0); $("#tTodayN").closest(".tile").classList.toggle("has", t.today[0] > 0);
     $("#tLateN").textContent = t.late[0]; $("#tLateD").textContent = money(t.late[1]);
     $("#tTodayN").textContent = t.today[0]; $("#tTodayD").textContent = money(t.today[1]);
     $("#tSoonN").textContent = t.soon[0]; $("#tSoonD").textContent = money(t.soon[1]);
@@ -796,6 +839,8 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const lines = list.slice().reverse().map((x, i) => `<span class="nl" title="${esc(x.text)} · ${esc(x.by || "")} ${stamp(x.at)}">${esc(x.text)} <span class="meta">· ${esc(x.by || "")} ${stamp(x.at)}</span>${i === 0 && list.length > 1 ? `<span class="more">+${list.length - 1}</span>` : ""}</span>`);
     // TV shows every note on the job run together, newest first, separated by a bar
     const all = list.slice().reverse().map(x => esc(x.text)).join(` <span class="sep">|</span> `);
+    // New look, computer view: one line (the newest note) plus a count, so every row is the same height
+    if (NEWUI && !document.body.classList.contains("tv")) { const x = list[list.length - 1]; return `<span class="note-preview" title="${esc(list.slice().reverse().map(y => `${y.text} (${y.by || ""} ${stamp(y.at)})`).join("\n"))}"><span class="nl">${esc(x.text)}</span>${list.length > 1 ? `<span class="more">+${list.length - 1}</span>` : ""}</span>`; }
     return `<span class="note-preview">${lines.join("")}<span class="tvall">${all}</span></span>`;
   }
   function rowHtml(j, isOpen) {
@@ -804,7 +849,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     return `<tr class="job ${c.cls}${stageCls ? " " + stageCls : ""}${isOpen ? " open" : ""}" data-id="${esc(j.orderNum)}" tabindex="0" aria-expanded="${isOpen}">
       <td class="stripe"></td>
       <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
-      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${j.details?.short ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
+      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${j.details?.short && !NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
       <td><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span></td>
       <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
       <td class="c-po num">${esc(j.customerPO || "")}</td>
@@ -813,7 +858,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       <td class="num"><b>${md(j.dueDate)}</b></td>
       <td class="r num">${money(j.amount)}</td>
       <td class="c-own">${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
-      <td>${notePreview(n)}</td>
+      <td class="c-notes">${j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}${notePreview(n)}</td>
       <td class="print-only"></td>
       <td class="caret">${isOpen ? "▲" : "▼"}</td></tr>`;
   }
@@ -851,11 +896,30 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   }
   // Straight from the SOS sales order, so nobody has to open the PDF to see what a job number actually is
   const qtyShort = j => { const s = j.details?.short; return s ? `${(s.ordered - s.onShipments).toLocaleString("en-US")} of ${s.ordered.toLocaleString("en-US")} ordered is not on a shipment in SOS` : ""; };
+  // SOS line descriptions are typed as comma runs ("Web, 2.167, Repeat, 3.995, White BOPP, DT Lam / Ink, CMYK / Rewind, #3, Rolls of...").
+  // Lay the recognisable parts out as labelled specs; anything that doesn't fit the pattern is shown exactly as typed.
+  function specHtml(desc) {
+    const lead = [], specs = []; let hit = false;
+    for (const raw of String(desc || "").split(/\r?\n/)) {
+      const t = raw.split(",").map(s => s.trim()).filter(Boolean); if (!t.length) continue;
+      const k = t[0].toLowerCase();
+      if (k === "web") { hit = true; const ri = t.findIndex(x => x.toLowerCase() === "repeat"); const web = ri > 1 ? t.slice(1, ri).join(", ") : (t[1] || ""); const repv = ri >= 0 ? (t[ri + 1] || "") : ""; const rest = t.slice(ri >= 0 ? ri + 2 : 2);
+        if (web) specs.push(["Web", web]); if (repv) specs.push(["Repeat", repv]); if (rest.length) specs.push(["Stock & finish", rest.join(", ")]); }
+      else if (k === "ink") { hit = true; if (t.length > 1) specs.push(["Ink", t.slice(1).join(", ")]); }
+      else if (k === "rewind") { hit = true; const other = [];
+        if (t[1]) specs.push(["Rewind", /^#/.test(t[1]) ? t[1] : "#" + t[1]]);
+        for (const x of t.slice(2)) { let m; if ((m = /^rolls? of\s+(.*)$/i.exec(x))) specs.push(["Rolls of", m[1]]); else if ((m = /^(?:cartons?|cases?) of\s+(.*)$/i.exec(x))) specs.push(["Cartons", m[1]]); else other.push(x); }
+        if (other.length) specs.push(["Also", other.join(", ")]); }
+      else lead.push(raw.trim().replace(/,\s*$/, ""));
+    }
+    if (!hit) return `<span class="od-raw">${esc(desc)}</span>`;
+    return `${lead.length ? `<div class="od-lead">${esc(lead.join(" "))}</div>` : ""}<dl class="od-specs">${specs.map(s => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`).join("")}</dl>`;
+  }
   function orderDetails(j) {
     const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
     const qty = v => (Number(v) || 0).toLocaleString("en-US");
     const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", d.shipTo], ["Shipments", (d.shipments || []).join(", ")], ["Quantity short", qtyShort(j)]].filter(f => f[1]);
-    const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${esc(l.desc)}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
+    const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${NEWUI ? specHtml(l.desc) : `<span class="od-raw">${esc(l.desc)}</span>`}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
     return `<div class="field od"><label>Order details · from SOS</label>
       ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
       ${lines ? `<table class="od-lines"><thead><tr><th>Item</th><th>Description</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>${lines}</tbody></table>` : `<p class="ro-note">No line items on this order.</p>`}
@@ -904,6 +968,13 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   modal.addEventListener("mousedown", e => { modal._down = e.target === modal; });
   modal.addEventListener("click", e => { if ((e.target === modal && modal._down) || e.target.closest("[data-close]")) closeModal(); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) { e.stopPropagation(); closeModal(); } }, true);
+  if (NEWUI) {
+    const ub = document.createElement("div"); ub.className = "userbox"; ub.append($("#meLabel"), $("#themeBtn"), $("#signOut"));
+    const right = document.createElement("div"); right.className = "head-right"; const fr = document.querySelector(".head .fresh"); fr.replaceWith(right); right.append(fr, ub);
+    const sp = document.createElement("span"); sp.className = "spacer"; document.querySelector('.bar[role="toolbar"]').append(sp, $("#refreshBtn"), $("#csvBtn"), $("#printBtn"));
+    document.querySelector(".bar.actions").hidden = true;
+    for (const t of document.querySelectorAll(".tile[title]")) t.removeAttribute("title");
+  }
   function render() { renderTotals(); renderFresh(); renderHeader(); renderLocOptions(); renderRows(); }
 
   // ---------- interactions ----------
