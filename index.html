@@ -508,7 +508,7 @@ html[data-ui="new"] body:not(.tv) td.c-rep{max-width:150px;overflow:hidden;text-
 html[data-ui="new"] body:not(.tv) td.c-notes{max-width:0;width:26%}
 html[data-ui="new"] body:not(.tv) td.c-notes{display:table-cell} html[data-ui="new"] body:not(.tv) td.c-notes .pin-tag.short{margin:0 8px 0 0;vertical-align:middle}
 html[data-ui="new"] body:not(.tv) .note-preview{display:inline-flex;align-items:center;gap:6px;max-width:100%;vertical-align:middle;min-width:0}
-html[data-ui="new"] body:not(.tv) td.c-notes:has(.pin-tag.short) .note-preview{max-width:calc(100% - 84px)}
+html[data-ui="new"] body:not(.tv) td.c-notes:has(.pin-tag.short) .note-preview{max-width:calc(100% - 112px)}
 html[data-ui="new"] body:not(.tv) .note-preview .nl{max-width:none;min-width:0;flex:1 1 auto;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 html[data-ui="new"] body:not(.tv) .note-preview .nl+.nl{display:none}
 html[data-ui="new"] body:not(.tv) .note-preview .nl .meta{display:none}
@@ -528,6 +528,9 @@ html[data-ui="new"] .od-ship{background:var(--soft);border-radius:11px;padding:1
 html[data-ui="new"] .od-ship.drop{background:color-mix(in srgb,var(--accent) 6%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
 html[data-ui="new"] .od-ship-h{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin-bottom:5px}
 html[data-ui="new"] .od-ship address{font-style:normal;display:flex;flex-direction:column;gap:1px;font-size:13.5px;line-height:1.45} html[data-ui="new"] .od-ship address .co{font-weight:600}
+/* --- Round 4: our own dropdown arrow, with the same breathing room on the right as the text has on the left --- */
+html[data-ui="new"] .ctl select,html[data-ui="new"] .due-edit select{-webkit-appearance:none;appearance:none;padding-left:12px;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%236e7480' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px;text-overflow:ellipsis}
+html[data-ui="new"] .od-specs dt{flex-basis:84px}
 html[data-ui="new"].modal-open body{overflow:hidden}
 }
 /* NEWUI-END */
@@ -873,7 +876,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       <td class="num"><b>${md(j.dueDate)}</b></td>
       <td class="r num">${money(j.amount)}</td>
       <td class="c-own">${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
-      <td class="c-notes">${j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}${notePreview(n)}</td>
+      <td class="c-notes">${j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty mismatch</span>` : ""}${notePreview(n)}</td>
       <td class="print-only"></td>
       <td class="caret">${isOpen ? "▲" : "▼"}</td></tr>`;
   }
@@ -910,35 +913,63 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (tv) requestAnimationFrame(fitTV);
   }
   // Straight from the SOS sales order, so nobody has to open the PDF to see what a job number actually is
-  const qtyShort = j => { const s = j.details?.short; return s ? `${(s.ordered - s.onShipments).toLocaleString("en-US")} of ${s.ordered.toLocaleString("en-US")} ordered is not on a shipment in SOS` : ""; };
-  // SOS line descriptions are typed as comma runs ("Web, 2.167, Repeat, 3.995, White BOPP, DT Lam / Ink, CMYK / Rewind, #3, Rolls of...").
-  // Lay the recognisable parts out as labelled specs; anything that doesn't fit the pattern is shown exactly as typed.
-  function specHtml(desc) {
-    const lead = [], specs = []; let hit = false;
-    for (const raw of String(desc || "").split(/\r?\n/)) {
-      const t = raw.split(",").map(s => s.trim()).filter(Boolean); if (!t.length) continue;
-      const k = t[0].toLowerCase();
-      if (k === "web") { hit = true; const ri = t.findIndex(x => x.toLowerCase() === "repeat"); const web = ri > 1 ? t.slice(1, ri).join(", ") : (t[1] || ""); const repv = ri >= 0 ? (t[ri + 1] || "") : ""; const rest = t.slice(ri >= 0 ? ri + 2 : 2);
-        if (web) specs.push(["Web", web]); if (repv) specs.push(["Repeat", repv]); if (rest.length) specs.push(["Stock & finish", rest.join(", ")]); }
-      else if (k === "ink") { hit = true; if (t.length > 1) specs.push(["Ink", t.slice(1).join(", ")]); }
-      else if (k === "rewind") { hit = true; const other = [];
-        if (t[1]) specs.push(["Rewind", /^#/.test(t[1]) ? t[1] : "#" + t[1]]);
-        for (const x of t.slice(2)) { let m; if ((m = /^rolls? of\s+(.*)$/i.exec(x))) specs.push(["Rolls of", m[1]]); else if ((m = /^(?:cartons?|cases?) of\s+(.*)$/i.exec(x))) specs.push(["Cartons", m[1]]); else other.push(x); }
-        if (other.length) specs.push(["Also", other.join(", ")]); }
-      else lead.push(raw.trim().replace(/,\s*$/, ""));
+  const qtyShort = j => { const s = j.details?.short; if (!s) return ""; const f = v => Number(v).toLocaleString("en-US"); return NEWUI ? `Sales order says ${f(s.ordered)}, shipments total ${f(s.onShipments)}` : `${f(s.ordered - s.onShipments)} of ${f(s.ordered)} ordered is not on a shipment in SOS`; };
+  // SOS line descriptions are typed as one comma run with arbitrary line breaks, e.g.
+  //   "Web, 6, Repeat, 4, w/ perf, White Thermal\nTransfer, No Lamination,\nInk, Blank,\nRolls of 1,600, Cartons of 6,400,"
+  // Find the keywords wherever they fall (not line by line, and without splitting numbers like 1,600) and lay the
+  // parts out as labelled specs. Anything before "Web" is the product name. Web-store lines use "Web: 3 | Repeat: 4.5 | ...".
+  // Anything that doesn't fit (no keywords, or two labels described in one line) is shown as typed.
+  function parseSpec(desc) {
+    const text = String(desc || "").replace(/\r/g, "");
+    const clean = s => s.replace(/\s*\n\s*/g, " ").replace(/^[\s,/]+|[\s,/]+$/g, "").replace(/\s{2,}/g, " ");
+    if (/\|/.test(text) && /\bweb\s*:/i.test(text)) { // web-store format
+      const specs = [], other = [];
+      for (const part of text.split("|").map(clean).filter(Boolean)) { const kv = /^([A-Za-z ]{2,14}):\s*(.+)$/.exec(part); if (kv) specs.push([kv[1].trim().replace(/^msi$/i, "MSI"), kv[2].trim()]); else other.push(part); }
+      if (other.length) specs.push(["Details", other.join(", ")]);
+      return { lead: "", specs };
     }
-    if (!hit) return `<span class="od-raw">${esc(desc)}</span>`;
-    return `${lead.length ? `<div class="od-lead">${esc(lead.join(" "))}</div>` : ""}<dl class="od-specs">${specs.map(s => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`).join("")}</dl>`;
+    if ((text.match(/\bweb\s*,/gi) || []).length > 1) return null; // front + back in one line: leave it exactly as typed
+    const re = /(?:(^|[,\n])[ \t]*(web|repeat|rewind|unwind)|(^|[\s,/(])(ink|finish\s*:|rolls? of|stacks? of|(?:cartons?|cases?) of))(?=[\s,#:\d]|$)/gi;
+    const marks = []; let m;
+    while ((m = re.exec(text))) {
+      const pre = m[1] != null ? m[1] : m[3], kw = (m[2] || m[4]).toLowerCase().replace(/\s*:$/, ""), after = text.slice(m.index + m[0].length);
+      if (kw === "web" && !/^\s*,|^\s+[\d.]/.test(after)) continue;
+      if ((kw === "repeat" || kw === "ink") && !/^\s*,/.test(after)) continue; // "Ink Jet Coated" is a material, not the Ink field
+      const key = kw.startsWith("roll") ? "rolls" : kw.startsWith("stack") ? "stacks" : /^(carton|case)/.test(kw) ? "cartons" : kw;
+      if (marks.some(x => x.key === key)) continue; // first one wins
+      marks.push({ key, start: m.index + pre.length, valFrom: m.index + m[0].length });
+    }
+    if (!marks.some(x => x.key === "web" || x.key === "repeat")) return null;
+    const val = {}; marks.forEach((k, i) => { val[k.key] = clean(text.slice(k.valFrom, i + 1 < marks.length ? marks[i + 1].start : text.length).replace(/^\s*:/, "")); });
+    const lead = clean(text.slice(0, marks[0].start));
+    const specs = [], push = (l, v) => { if (v) specs.push([l, v]); };
+    push("Web", val.web);
+    let rest = [];
+    if (val.repeat != null) { const t = val.repeat.split(",").map(s => s.trim()).filter(Boolean); push("Repeat", t[0]); rest = t.slice(1); }
+    const fin = [], die = [], mat = [];
+    for (const t of rest) (/\b(lam|lamination|laminate|varnish|uv|coat(ing)?|foil|emboss(ed)?)\b/i.test(t) && !/\b(bopp|paper|felt|liner|adhesive|semi|vinyl)\b/i.test(t) ? fin : /\b(die|perf|perforat\w*|cut)\b/i.test(t) ? die : mat).push(t);
+    if (val.finish) fin.push(val.finish);
+    push("Material", mat.join(", ")); push("Finish", fin.join(", ")); push("Die / perf", die.join(", "));
+    push("Ink", val.ink);
+    const hash = v => /^#?\s*\d+$/.test(v) ? "#" + v.replace(/^#\s*/, "") : v;
+    if (val.rewind) push("Rewind", hash(val.rewind)); if (val.unwind) push("Unwind", hash(val.unwind));
+    push("Rolls of", val.rolls); push("Stacks of", val.stacks); push("Cartons of", val.cartons);
+    return { lead, specs };
+  }
+  function specHtml(desc) {
+    const r = parseSpec(desc); if (!r) return `<span class="od-raw">${esc(desc)}</span>`;
+    return `${r.lead ? `<div class="od-lead">${esc(r.lead)}</div>` : ""}<dl class="od-specs">${r.specs.map(s => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`).join("")}</dl>`;
   }
   // Drop ship = the Drop Ship tick on the sales order in SOS
   const isDropShip = j => !!j.details?.dropShip;
+  const sizeOf = j => (j.details?.fields || []).find(f => /^size$/i.test(f.name))?.value || ""; // the order's "F Size" field in SOS
   function shipBox(j) { const s = j.details?.ship; if (!s || !(s.company || s.lines?.length || s.cityLine)) return "";
     const rows = [s.company, s.contact && s.contact !== s.company ? s.contact : "", ...(s.lines || []), s.cityLine, s.country && !/^(us|usa|united states)$/i.test(s.country) ? s.country : "", s.phone].filter(Boolean);
     return `<div class="od-ship${isDropShip(j) ? " drop" : ""}"><div class="od-ship-h"><span>Ship to</span>${isDropShip(j) ? `<span class="drop-tag">Drop ship</span>` : ""}</div><address>${rows.map((r, i) => `<span${i === 0 ? ' class="co"' : ""}>${esc(r)}</span>`).join("")}</address></div>`; }
   function orderDetails(j) {
     const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
     const qty = v => (Number(v) || 0).toLocaleString("en-US");
-    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", NEWUI && d.ship ? "" : d.shipTo], ["Shipments", (d.shipments || []).join(", ")], ["Quantity short", qtyShort(j)]].filter(f => f[1]);
+    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", NEWUI && d.ship ? "" : d.shipTo], ["Shipments", (d.shipments || []).join(", ")], [NEWUI ? "Quantity mismatch" : "Quantity short", qtyShort(j)]].filter(f => f[1]);
     const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${NEWUI ? specHtml(l.desc) : `<span class="od-raw">${esc(l.desc)}</span>`}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
     return `<div class="field od"><label>Order details · from SOS</label>
       ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
@@ -991,7 +1022,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const top = modalBody.scrollTop, due = modalBody.querySelector("[data-due]"), dueFocus = due && document.activeElement === due;
     $("#modalHead").innerHTML = `<div class="m-id"><div class="m-eyebrow">Order ${esc(j.orderNum)}${j.isReceipt ? " · Web order" : ""}${j.customerPO ? ` · PO ${esc(j.customerPO)}` : ""}</div>
       <h2 id="modalTitle"><span class="num">${esc(shortNum(j.orderNum))}</span>${esc(j.customer)}</h2>
-      <div class="m-chips"><span class="loc">${esc(j.location)}</span><span class="pill ${pillCls(c)}">${esc(c.label)}</span>${isDropShip(j) ? `<span class="drop-tag">Drop ship</span>` : ""}<span class="m-fact">Due <b>${longDate(j.dueDate)}</b></span><span class="m-fact num"><b>${money(j.amount)}</b></span>${j.rep ? `<span class="m-fact">${esc(j.rep)}</span>` : ""}</div></div>
+      <div class="m-chips"><span class="loc">${esc(j.location)}</span><span class="pill ${pillCls(c)}">${esc(c.label)}</span>${isDropShip(j) ? `<span class="drop-tag">Drop ship</span>` : ""}${sizeOf(j) ? `<span class="m-fact">Size <b>${esc(sizeOf(j))}</b></span>` : ""}<span class="m-fact">Due <b>${longDate(j.dueDate)}</b></span><span class="m-fact num"><b>${money(j.amount)}</b></span>${j.rep ? `<span class="m-fact">${esc(j.rep)}</span>` : ""}</div></div>
       <button type="button" class="modal-x" data-close aria-label="Close">✕</button>`;
     modalBody.dataset.for = j.orderNum; modalBody.innerHTML = detailInner(j, n);
     modal.hidden = false; document.documentElement.classList.add("modal-open"); modalBody.scrollTop = top;
