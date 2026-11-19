@@ -531,6 +531,24 @@ html[data-ui="new"] .od-ship address{font-style:normal;display:flex;flex-directi
 /* --- Round 4: our own dropdown arrow, with the same breathing room on the right as the text has on the left --- */
 html[data-ui="new"] .ctl select,html[data-ui="new"] .due-edit select{-webkit-appearance:none;appearance:none;padding-left:12px;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%236e7480' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:12px 12px;text-overflow:ellipsis}
 html[data-ui="new"] .od-specs dt{flex-basis:84px}
+/* --- Round 5 --- */
+/* header pills: same height */
+html[data-ui="new"] .fresh,html[data-ui="new"] .userbox{height:34px;box-sizing:border-box;padding-top:0;padding-bottom:0}
+html[data-ui="new"] .userbox .btn.quiet{padding:4px 10px}
+/* TV: both tile rows as one continuous card with hairline dividers, same as the computer view */
+html[data-ui="new"] body.tv .strip,html[data-ui="new"] body.tv #locStrip{gap:0;background:var(--panel);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+html[data-ui="new"] body.tv .tile,html[data-ui="new"] body.tv #locStrip .tile{border:0;border-radius:0;background:transparent;box-shadow:none;position:relative}
+html[data-ui="new"] body.tv .tile+.tile::before{content:"";position:absolute;left:0;top:18%;bottom:18%;width:1px;background:var(--line-strong)}
+/* TV type: the same Inter as the computer view, with real breathing room between columns */
+html[data-ui="new"] body.tv table,html[data-ui="new"] body.tv .job-num,html[data-ui="new"] body.tv .loc,html[data-ui="new"] body.tv .pill,html[data-ui="new"] body.tv .tile .big,html[data-ui="new"] body.tv #locStrip .lbl{font-family:var(--body)}
+html[data-ui="new"] body.tv table{font-size:25px;font-weight:500;letter-spacing:-.01em}
+html[data-ui="new"] body.tv .job-num{font-size:30px;font-weight:600;letter-spacing:-.02em}
+html[data-ui="new"] body.tv td,html[data-ui="new"] body.tv th{padding-left:12px;padding-right:12px}
+html[data-ui="new"] body.tv td.r,html[data-ui="new"] body.tv th.r{padding-left:22px}
+html[data-ui="new"] body.tv td.stripe,html[data-ui="new"] body.tv th.stripe{padding:0}
+html[data-ui="new"] body.tv .loc{font-size:15px;letter-spacing:.01em} html[data-ui="new"] body.tv .pill{font-size:18px;font-weight:500}
+html[data-ui="new"] body.tv .pill.late,html[data-ui="new"] body.tv .pill.today{font-weight:600}
+html[data-ui="new"] body.tv #locStrip .lbl{font-size:14px;letter-spacing:.03em}
 html[data-ui="new"].modal-open body{overflow:hidden}
 }
 /* NEWUI-END */
@@ -679,7 +697,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   function saveDrafts() { try { localStorage.setItem("hotlist.drafts", JSON.stringify(drafts)); } catch {} }
   let groupBy = "location", statusFilter = "all", locFilter = "", search = "";
   let sortKey = "dueDate", sortDir = 1;
-  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null, locSaving = null, sosLocs = null, dieLib = null; const dueDrafts = {}, locDrafts = {};
+  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null, locSaving = null, sosLocs = null; const dueDrafts = {}, locDrafts = {};
   let tvTimer = null, pollTimer = null, channel = null;
   try {
     includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || "";
@@ -695,6 +713,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   const md = iso => iso ? `${+iso.slice(5,7)}/${+iso.slice(8,10)}` : "";
   const longDate = iso => new Date(iso + "T12:00:00Z").toLocaleDateString("en-US", { timeZone: "UTC", weekday: "short", month: "short", day: "numeric" });
   const money = n => "$" + (Number(n)||0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const tvMoney = n => document.documentElement.getAttribute("data-ui") === "new" && document.body.classList.contains("tv") ? money0(n) : money(n);
   const money0 = n => "$" + Math.round(Number(n)||0).toLocaleString("en-US");
   const stamp = ms => new Date(ms).toLocaleString("en-US", { timeZone: "America/New_York", month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" });
   const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -799,8 +818,8 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       else if (j.stage !== "shipped") { hold++; heldAmt += +j.amount || 0; }
     }
     $("#tLateN").closest(".tile").classList.toggle("has", t.late[0] > 0); $("#tTodayN").closest(".tile").classList.toggle("has", t.today[0] > 0);
-    $("#tLateN").textContent = t.late[0]; $("#tLateD").textContent = money(t.late[1]);
-    $("#tTodayN").textContent = t.today[0]; $("#tTodayD").textContent = money(t.today[1]);
+    $("#tLateN").textContent = t.late[0]; $("#tLateD").textContent = tvMoney(t.late[1]);
+    $("#tTodayN").textContent = t.today[0]; $("#tTodayD").textContent = tvMoney(t.today[1]);
     $("#tSoonN").textContent = t.soon[0]; $("#tSoonD").textContent = money(t.soon[1]);
     // Every open order that hasn't shipped: on the floor + ready to ship + on hold + order entry (not just what the board lists)
     $("#tAllN").textContent = t.all[0] + ready + hold + oe; $("#tAllD").textContent = `${money0(t.all[1] + readyAmt + heldAmt)} open · ${t.all[0]} on the floor`;
@@ -874,7 +893,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       <td class="c-rep">${esc(j.rep)}</td>
       <td class="c-ord num">${md(j.orderDate)}</td>
       <td class="num"><b>${md(j.dueDate)}</b></td>
-      <td class="r num">${money(j.amount)}</td>
+      <td class="r num">${tvMoney(j.amount)}</td>
       <td class="c-own">${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
       <td class="c-notes">${SHOW_QTY_FLAG && j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty mismatch</span>` : ""}${notePreview(n)}</td>
       <td class="print-only"></td>
@@ -899,7 +918,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       sum += +j.amount || 0;
     }
     // On the TV five columns are hidden, so the totals row has to span the eight that are left or it pads the table with empty columns
-    if (list.length && tv) h += `<tr class="total"><td class="stripe"></td><td colspan="5">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td></td></tr>`;
+    if (list.length && tv) h += `<tr class="total"><td class="stripe"></td><td colspan="5">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${tvMoney(sum)}</td><td></td></tr>`;
     else if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="8">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
     // A sync (or anyone else's note) redraws the rows. Keep a half-typed note and the cursor where they were.
     const act = document.activeElement, keep = act && act.id && act.id.startsWith("note_") ? { id: act.id, s: act.selectionStart, e: act.selectionEnd } : null;
@@ -957,18 +976,10 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     push("Rolls of", val.rolls); push("Stacks of", val.stacks); push("Cartons of", val.cartons);
     return { lead, specs, web: parseFloat(val.web), repeat: parseFloat((val.repeat || "").split(",")[0]) };
   }
-  // Which die? SOS has no die field on an item. Two honest sources: the die number typed into the order's Size field
-  // ("2.125 x .875 (ABG 87)"), and the Die Library, matched to the line's Web x Repeat. Library matches are candidates, not a record.
+  // Die: only what SOS itself says. SOS has no die field on an item; the die number is typed into the order's Size
+  // field ("2.125 x .875 (ABG 87)"), so it is shown on the line only when the order has a single line item.
   const statedDie = j => { const m = /\(\s*((?:ABG|FA|GM)\s*#?\s*\d+)\s*\)/i.exec(sizeOf(j)); return m ? m[1].toUpperCase().replace(/\s*#?\s*(\d+)$/, " $1") : ""; };
-  function dieRow(r, j) {
-    const near = (a, b) => Math.abs(a - b) < 0.006, stated = statedDie(j);
-    const fits = (dieLib || []).filter(d => !d.archived && r.web > 0 && r.repeat > 0 && ((near(+d.width, r.web) && near(+d.height, r.repeat)) || (near(+d.width, r.repeat) && near(+d.height, r.web))));
-    const nm = d => `${d.die_number}${d.shape && !/^rounded rect|^rect/i.test(d.shape) ? " (" + d.shape.toLowerCase() + ")" : ""}`;
-    const one = (j.details?.lines || []).length === 1;
-    if (stated && (one || fits.some(d => d.die_number.toUpperCase() === stated))) return ["Die", `${stated} · from the order's Size field`];
-    if (!fits.length) return null;
-    return ["Die", `${fits.slice(0, 4).map(nm).join(", ")}${fits.length > 4 ? ` +${fits.length - 4} more` : ""} · Die Library ${fits.length === 1 ? "match" : "matches"} for this size`];
-  }
+  const dieRow = (r, j) => statedDie(j) && (j.details?.lines || []).length === 1 ? ["Die", statedDie(j)] : null;
   function specHtml(desc, j) {
     const r = parseSpec(desc); if (!r) return `<span class="od-raw">${esc(desc)}</span>`;
     const dr = j ? dieRow(r, j) : null; if (dr) { const at = r.specs.findIndex(s => s[0] === "Ink"); r.specs.splice(at < 0 ? r.specs.length : at, 0, dr); }
@@ -1348,7 +1359,6 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
     gate.hidden = true; await resolveName(s);
     try { const { data: ed } = await sb.from("hotlist_editors").select("email").eq("email", (s.user?.email || "").toLowerCase()).maybeSingle(); isEditor = !!ed; } catch { isEditor = false; }
-    if (NEWUI && !dieLib) sb.from("dies").select("die_number,width,height,shape,archived").range(0, 2999).then(({ data }) => { if (Array.isArray(data)) { dieLib = data; if (openJob) renderRows(); } }, () => {});
     if (isEditor && NEWUI && !sosLocs) sosCall({ locations: true }).then(o => { if (Array.isArray(o.locations) && o.locations.length) { sosLocs = o.locations; if (openJob) renderRows(); } }).catch(() => {});
     await loadAll(false); subscribe();
     if (TV_AUTO && !document.body.classList.contains("tv")) enterTV();
