@@ -163,6 +163,13 @@ tr.detail td{background:color-mix(in srgb,var(--accent) 4%,var(--panel));padding
 .quick{display:flex;flex-wrap:wrap;gap:6px}
 .quick button{border:1px dashed var(--line-strong);background:transparent;border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted)}
 .ro-note{font-size:13px;color:var(--muted)}
+.od{grid-column:1/-1;order:-1;border-bottom:1px solid var(--line);padding-bottom:14px}
+.od-facts{display:flex;flex-wrap:wrap;gap:6px 22px;margin:6px 0 10px} .od-facts div{display:flex;gap:6px;align-items:baseline;font-size:14px} .od-facts dt{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--display);font-weight:600} .od-facts dd{margin:0;font-weight:600}
+table.od-lines{width:100%;min-width:0;border-collapse:collapse;font-size:14px;background:var(--panel);border:1px solid var(--line)}
+table.od-lines th{position:static;text-align:left;font-size:11px;padding:6px 10px;background:none;border-bottom:1px solid var(--line-strong)} table.od-lines th.r{text-align:right}
+table.od-lines td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top;background:none;white-space:normal} table.od-lines tr:last-child td{border-bottom:0}
+.od-item{white-space:nowrap} .od-cls{display:inline-block;margin-left:8px;font-size:11px;font-family:var(--display);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line-strong);border-radius:4px;padding:0 5px;color:var(--muted);font-weight:600}
+.od-desc{white-space:pre-line!important;color:var(--ink,inherit);max-width:70ch} .od-msg{font-size:13px;margin:8px 0 0;white-space:pre-line}
 
 .empty-state{padding:44px 20px;text-align:center;color:var(--muted)}
 .empty-state b{display:block;font-family:var(--display);font-size:24px;color:var(--ink);font-weight:700;margin-bottom:4px}
@@ -194,7 +201,7 @@ body.tv .tile{padding:calc(8px*var(--tvt,1)) 14px} body.tv .tile .big{font-size:
 /* TV: the fit-to-screen zoom is set by the row count, so the small text has to be big and bold relative to the job number to stay readable from across the floor */
 body.tv table{font-size:27px;font-weight:600} body.tv th{font-size:19px;font-weight:700;padding:8px 10px} body.tv td{padding:var(--tvpad,6px) 7px;vertical-align:middle}
 body.tv .job-num{font-size:34px} body.tv .job-num small{display:none} /* short job # only on the TV: one line per row means a bigger zoom for everything */
-body.tv th:nth-child(6),body.tv td:nth-child(6),body.tv th:nth-child(7),body.tv td:nth-child(7),body.tv th:nth-child(10),body.tv td:nth-child(10){display:none} /* TV: no Rep, no Ordered, no Owner */
+body.tv .c-po,body.tv .c-rep,body.tv .c-ord,body.tv .c-own{display:none} /* TV: no PO, no Rep, no Ordered, no Owner */
 body.tv td,body.tv th{white-space:nowrap} /* no wrapping on the TV: the fit loop sizes the zoom so both columns fit side by side */
 body.tv .owner-chip.none{font-size:0} body.tv .owner-chip.none::before{content:"–";font-size:21px} /* TV: unassigned shows as a dash to keep the column narrow */
 body.tv .ct{display:inline-block;max-width:var(--tvct,215px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
@@ -281,7 +288,7 @@ body.tv .tv-exit:hover{opacity:1}
   </label>
   <label class="toggle" id="soonWrap"><input type="checkbox" id="soonToggle"> Include next 2 days</label>
   <label class="ctl" id="recentWrap" hidden><select id="recentDays" hidden><option value="30">30 days</option></select></label>
-  <label class="search"><input type="search" id="search" placeholder="Search job #, customer, rep" aria-label="Search"></label>
+  <label class="search"><input type="search" id="search" placeholder="Search job #, customer, PO, item" aria-label="Search"></label>
 </div>
 <div class="bar actions" aria-label="Actions">
   <span class="me" id="meLabel"></span>
@@ -323,11 +330,12 @@ body.tv .tv-exit:hover{opacity:1}
       <th class="sortable" data-sort="location">Location</th>
       <th class="sortable" data-sort="status">Status</th>
       <th class="sortable" data-sort="customer">Customer</th>
-      <th class="sortable" data-sort="rep">Rep</th>
-      <th class="sortable" data-sort="orderDate">Ordered</th>
+      <th class="sortable c-po" data-sort="customerPO">PO #</th>
+      <th class="sortable c-rep" data-sort="rep">Rep</th>
+      <th class="sortable c-ord" data-sort="orderDate">Ordered</th>
       <th class="sortable" data-sort="dueDate">Due</th>
       <th class="sortable r" data-sort="amount">Amount</th>
-      <th class="sortable" data-sort="owner">Owner</th>
+      <th class="sortable c-own" data-sort="owner">Owner</th>
       <th>Notes</th>
       <th class="print-only">Initials / Done</th>
       <th class="caret"></th>
@@ -433,7 +441,7 @@ body.tv .tv-exit:hover{opacity:1}
   const isPinned = j => !!(notes[j.orderNum] && notes[j.orderNum].pinned);
   const isHeld = j => !isPinned(j) && (j.stage === "hold" || j.stage === "order_entry" || j.stage === "other");
   const pool = () => view === "recent" ? [...jobs.filter(j => j.stage === "shipped" && !isPinned(j)), ...closedJobs.filter(j => !isPinned(j))] : view === "held" ? jobs.filter(isHeld) : view === "ready" ? jobs.filter(j => j.stage === "ready" && !isPinned(j)) : [...jobs.filter(j => j.stage === "production" || isPinned(j)), ...closedJobs.filter(isPinned)];
-  const matchesSearch = j => { if (!search) return true; const q = search.toLowerCase(); return j.orderNum.toLowerCase().includes(q) || j.customer.toLowerCase().includes(q) || j.rep.toLowerCase().includes(q) || (notes[j.orderNum]?.owner || "").toLowerCase().includes(q); };
+  const matchesSearch = j => { if (!search) return true; const q = search.toLowerCase(); return j.orderNum.toLowerCase().includes(q) || j.customer.toLowerCase().includes(q) || j.rep.toLowerCase().includes(q) || (j.customerPO || "").toLowerCase().includes(q) || (j.details?.lines || []).some(l => (l.item || "").toLowerCase().includes(q)) || (notes[j.orderNum]?.owner || "").toLowerCase().includes(q); };
   function visibleJobs() {
     const out = [], extra = [];
     for (const j of pool()) {
@@ -570,11 +578,12 @@ body.tv .tv-exit:hover{opacity:1}
       <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}</td>
       <td><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span></td>
       <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
-      <td>${esc(j.rep)}</td>
-      <td class="num">${md(j.orderDate)}</td>
+      <td class="c-po num">${esc(j.customerPO || "")}</td>
+      <td class="c-rep">${esc(j.rep)}</td>
+      <td class="c-ord num">${md(j.orderDate)}</td>
       <td class="num"><b>${md(j.dueDate)}</b></td>
       <td class="r num">${money(j.amount)}</td>
-      <td>${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
+      <td class="c-own">${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
       <td>${notePreview(n)}</td>
       <td class="print-only"></td>
       <td class="caret">${isOpen ? "▲" : "▼"}</td></tr>`;
@@ -590,7 +599,7 @@ body.tv .tv-exit:hover{opacity:1}
       const k = groupKey(j);
       if (k !== null && k !== lastKey) {
         const grp = list.filter(x => groupKey(x) === k); const gs = grp.reduce((s, x) => s + (+x.amount || 0), 0);
-        h += `<tr class="group"><td colspan="13">${esc(groupLabel(k))}<span class="n">${grp.length} job${grp.length === 1 ? "" : "s"} · ${money(gs)}</span></td></tr>`;
+        h += `<tr class="group"><td colspan="14">${esc(groupLabel(k))}<span class="n">${grp.length} job${grp.length === 1 ? "" : "s"} · ${money(gs)}</span></td></tr>`;
         lastKey = k;
       }
       const isOpen = openJob === j.orderNum && !tv;
@@ -599,7 +608,7 @@ body.tv .tv-exit:hover{opacity:1}
     }
     // On the TV five columns are hidden, so the totals row has to span the eight that are left or it pads the table with empty columns
     if (list.length && tv) h += `<tr class="total"><td class="stripe"></td><td colspan="5">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td></td></tr>`;
-    else if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="7">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
+    else if (list.length) h += `<tr class="total"><td class="stripe"></td><td colspan="8">${list.length} job${list.length === 1 ? "" : "s"}</td><td class="r num">${money(sum)}</td><td colspan="4"></td></tr>`;
     // A sync (or anyone else's note) redraws the rows. Keep a half-typed note and the cursor where they were.
     const act = document.activeElement, keep = act && act.id && act.id.startsWith("note_") ? { id: act.id, s: act.selectionStart, e: act.selectionEnd } : null;
     const g2 = $("#grid2"), r2 = $("#rows2");
@@ -610,11 +619,22 @@ body.tv .tv-exit:hover{opacity:1}
     $("#printNote").textContent = `Printed ${stamp(Date.now())} ET · ${list.length} jobs · ${lateN} overdue · ${todN} due today${view === "mine" ? ` · ${ownerFilter || "unassigned"} only` : ""}${view === "all" && locFilter ? ` · ${locFilter}` : ""}. Black stripe = overdue, grey stripe = due today. Write initials when the job is on the truck.`;
     if (tv) requestAnimationFrame(fitTV);
   }
+  // Straight from the SOS sales order, so nobody has to open the PDF to see what a job number actually is
+  function orderDetails(j) {
+    const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
+    const qty = v => (Number(v) || 0).toLocaleString("en-US");
+    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", d.shipTo], ["Shipments", (d.shipments || []).join(", ")]].filter(f => f[1]);
+    const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${esc(l.desc)}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
+    return `<div class="field od"><label>Order details · from SOS</label>
+      ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
+      ${lines ? `<table class="od-lines"><thead><tr><th>Item</th><th>Description</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>${lines}</tbody></table>` : `<p class="ro-note">No line items on this order.</p>`}
+      ${d.message ? `<p class="od-msg"><b>Customer message:</b> ${esc(d.message)}</p>` : ""}${d.comment ? `<p class="od-msg"><b>Comment:</b> ${esc(d.comment)}</p>` : ""}</div>`;
+  }
   function detailRow(j, n) {
     const owners = PEOPLE.map(p => `<button type="button" data-owner="${esc(p)}" aria-pressed="${n.owner === p}">${esc(p)}</button>`).join("") + `<button type="button" data-owner="" aria-pressed="${!n.owner}">Nobody</button>`;
     const list = (n.notes || []).slice().reverse().map(x => `<li><span>${esc(x.text)}</span><span class="meta">${esc(x.by || "")} · ${stamp(x.at)}</span></li>`).join("") || `<li class="empty">No notes yet.</li>`;
     const quick = QUICK.map(q => `<button type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join("");
-    return `<tr class="detail" data-for="${esc(j.orderNum)}"><td colspan="13"><div class="detail-grid">
+    return `<tr class="detail" data-for="${esc(j.orderNum)}"><td colspan="14"><div class="detail-grid">
       <div class="field"><label>Owner</label><div class="owner-pick">${owners}</div>
         <label style="margin-top:10px">Flags</label>
         <label class="toggle"><input type="checkbox" id="ship_${esc(j.orderNum)}" data-ship ${n.shippedPending ? "checked" : ""}> Shipped, pending SOS update</label>
@@ -625,7 +645,7 @@ body.tv .tv-exit:hover{opacity:1}
       <div class="field"><label>Notes</label><ul class="notes-list">${list}</ul>
         <div class="quick">${quick}</div>
         <form class="add-note" data-add><input type="text" id="note_${esc(j.orderNum)}" value="${esc(drafts[j.orderNum] || "")}" placeholder="Add a note, e.g. holding for foil on item 2" maxlength="300" autocomplete="off"><button type="submit" class="btn primary">Add note</button></form>
-      </div></div></td></tr>`;
+      </div>${orderDetails(j)}</div></td></tr>`;
   }
   function render() { renderTotals(); renderFresh(); renderHeader(); renderLocOptions(); renderRows(); }
 
@@ -684,11 +704,11 @@ body.tv .tv-exit:hover{opacity:1}
   $("#csvBtn").addEventListener("click", () => {
     const list = visibleJobs(); if (!list.length) { toast("Nothing to export in this view"); return; }
     const grouped = groupKey(list[0]) !== null;
-    const head = [...(grouped ? ["Group"] : []), "Job #", "Order #", "Location", "Status", "Days late", "Customer", "Rep", "Ordered", "Due", "Amount", "Owner", "Stage", "On list", "Shipped pending SOS", "Notes"];
+    const head = [...(grouped ? ["Group"] : []), "Job #", "Order #", "Location", "Status", "Days late", "Customer", "Customer PO", "Rep", "Ordered", "Due", "Amount", "Owner", "Stage", "On list", "Shipped pending SOS", "Type", "Items", "Notes"];
     const q = v => { const t = String(v ?? ""); return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
     const rows = list.map(j => { const n = notes[j.orderNum] || {}, c = j._c;
       const noteTxt = (n.notes || []).map(x => `${x.text} (${x.by || ""} ${stamp(x.at)})`).join(" | ");
-      return [...(grouped ? [groupLabel(groupKey(j))] : []), shortNum(j.orderNum), j.orderNum, j.location, c.label, c.daysLate || 0, j.customer, j.rep, j.orderDate, j.dueDate, (Number(j.amount) || 0).toFixed(2), n.owner || "", STAGE_LABEL[isPinned(j) ? "production" : j.stage] || j.stage, isPinned(j) ? "yes" : "", n.shippedPending ? "yes" : "", noteTxt].map(q).join(",");
+      return [...(grouped ? [groupLabel(groupKey(j))] : []), shortNum(j.orderNum), j.orderNum, j.location, c.label, c.daysLate || 0, j.customer, j.customerPO || "", j.rep, j.orderDate, j.dueDate, (Number(j.amount) || 0).toFixed(2), n.owner || "", STAGE_LABEL[isPinned(j) ? "production" : j.stage] || j.stage, isPinned(j) ? "yes" : "", n.shippedPending ? "yes" : "", j.details?.cls || "", (j.details?.lines || []).map(l => `${l.item} x ${l.qty}`).join(" | "), noteTxt].map(q).join(",");
     });
     const csv = "\uFEFF" + [head.join(","), ...rows].join("\r\n"); // BOM so Excel reads accents and the $ column cleanly
     const name = `husky-${view === "hot" ? "hot-list" : view === "all" ? "all-open" : view === "ready" ? "ready-to-ship" : view === "held" ? "held" : view === "mine" ? (ownerFilter || "unassigned").toLowerCase() + "-jobs" : view}-${todayISO()}.csv`;
@@ -826,7 +846,7 @@ body.tv .tv-exit:hover{opacity:1}
   setInterval(() => { if (session) render(); }, 60000);
 
   // ---------- data ----------
-  const rowToJob = r => ({ orderNum: r.order_num, customer: r.customer, rep: r.rep, orderDate: r.order_date, dueDate: r.due_date, amount: Number(r.amount), location: r.location, isReceipt: !!r.is_receipt, stage: r.location === "READY TO SHIP" && (!r.stage || r.stage === "production") ? "ready" : (r.stage || "production"), closedAt: r.closed_at || null, locationSince: r.location_since || null });
+  const rowToJob = r => ({ orderNum: r.order_num, customer: r.customer, rep: r.rep, orderDate: r.order_date, dueDate: r.due_date, amount: Number(r.amount), location: r.location, isReceipt: !!r.is_receipt, stage: r.location === "READY TO SHIP" && (!r.stage || r.stage === "production") ? "ready" : (r.stage || "production"), closedAt: r.closed_at || null, locationSince: r.location_since || null, customerPO: r.customer_po || "", details: r.details || null });
   async function loadAll(manual) {
     const since = new Date(Date.now() - 366 * 86400000).toISOString();
     const [j, h, n, m] = await Promise.all([
