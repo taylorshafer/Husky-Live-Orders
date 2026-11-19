@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<script>try{var q=new URLSearchParams(location.search),u=q.get("ui");if(u==="new"||u==="classic")localStorage.setItem("hl.ui",u);if((u||localStorage.getItem("hl.ui"))==="new")document.documentElement.setAttribute("data-ui","new")}catch(e){}</script>
+<script>try{var q=new URLSearchParams(location.search),u=q.get("ui");if(u==="new"||u==="classic")localStorage.setItem("hl.ui",u);if((u||localStorage.getItem("hl.ui"))!=="classic")document.documentElement.setAttribute("data-ui","new")}catch(e){}</script>
 <script>try{var t=new URLSearchParams(location.search).get("theme")||localStorage.getItem("hl.theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <head>
 <meta charset="utf-8">
@@ -267,8 +267,8 @@ body.tv .tv-exit:hover{opacity:1}
 .print-note{display:none}
 /* NEWUI-START */
 /* ============================================================================================================
-   NEW LOOK (preview). Everything below only applies when <html data-ui="new">, which is set by opening the board
-   with ?ui=new (remembered on that device; ?ui=classic goes back). Nothing above this line was changed, so
+   NEW LOOK (the default since Nov 19 2026). Everything below only applies when <html data-ui="new">, which is set for
+   everyone unless a device opened the board with ?ui=classic (remembered on that device; ?ui=new comes back). Nothing above this line was changed, so
    deleting this block, or never setting data-ui, gives exactly the classic board.
    Direction: quiet neutrals, one accent (Husky blue), Inter, soft cards. Color is reserved for late / due today.
    ============================================================================================================ */
@@ -549,6 +549,8 @@ html[data-ui="new"] body.tv td.stripe,html[data-ui="new"] body.tv th.stripe{padd
 html[data-ui="new"] body.tv .loc{font-size:15px;letter-spacing:.01em} html[data-ui="new"] body.tv .pill{font-size:18px;font-weight:500}
 html[data-ui="new"] body.tv .pill.late,html[data-ui="new"] body.tv .pill.today{font-weight:600}
 html[data-ui="new"] body.tv #locStrip .lbl{font-size:14px;letter-spacing:.03em}
+/* --- Round 6: even gaps around the location row on the TV --- */
+html[data-ui="new"] body.tv .strip,html[data-ui="new"] body.tv #locStrip{margin-bottom:10px}
 html[data-ui="new"].modal-open body{overflow:hidden}
 }
 /* NEWUI-END */
@@ -1217,7 +1219,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const TV_INSET = tvInset(), TV_ZOOM = tvZoom(); const have = vh;
     // The inset is a share of the real screen, so it is divided by the zoom (padding is zoomed with everything else)
     const vw = Math.min(window.innerWidth, de.clientWidth || Infinity);
-    const setZ = () => { b.style.zoom = String(z); b.style.padding = TV_INSET ? `${(vh * TV_INSET / 100 / z).toFixed(1)}px ${(vw * TV_INSET / 100 / z).toFixed(1)}px` : ""; };
+    const setZ = () => { b.style.zoom = String(z); b.style.padding = TV_INSET ? `${(vh * TV_INSET / 100 / z).toFixed(1)}px ${(vw * (NEWUI ? Math.max(2, TV_INSET * 0.6) : TV_INSET) / 100 / z).toFixed(1)}px` : ""; };
     const sv = (k, v) => b.style.setProperty(k, v);
     const W = [[270, 215, 3], [250, 205, 3], [230, 195, 4], [215, 185, 4], [200, 175, 4]]; // notes width, customer width, note lines: given up in steps before the zoom is
     const setW = i => { sv("--tvnote", W[i][0] + "px"); sv("--tvct", W[i][1] + "px"); sv("--tvclamp", String(W[i][2])); };
