@@ -515,6 +515,19 @@ html[data-ui="new"] body:not(.tv) .note-preview .nl .meta{display:none}
 html[data-ui="new"] body:not(.tv) .note-preview .more{display:inline-block;flex:none;background:var(--soft);color:var(--muted);border-radius:999px;padding:1px 7px;font-size:11.5px;font-weight:500;margin-left:6px}
 html[data-ui="new"] body:not(.tv) .note-preview.empty .meta{color:var(--line-strong)}
 html[data-ui="new"] body:not(.tv) td.c-notes .pin-tag.short+.note-preview.empty{display:none}
+/* --- Round 3 --- */
+html[data-ui="new"] .c-own,html[data-ui="new"] #viewSeg [data-view="mine"]{display:none}
+html[data-ui="new"] body.tv .head{display:none}
+html[data-ui="new"] tr.late.ready td.stripe{background:var(--late)}
+html[data-ui="new"] .sublbl{font-weight:500!important;color:var(--muted)!important;font-size:12.5px!important;margin-top:8px}
+html[data-ui="new"] .due-edit{flex-wrap:nowrap} html[data-ui="new"] .due-edit select,html[data-ui="new"] .due-edit input{flex:1 1 auto;min-width:0}
+html[data-ui="new"] .due-edit select{border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:9px 12px;font-size:13.5px;background:var(--panel);color:var(--ink);font:inherit}
+html[data-ui="new"] .legacy{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line-strong)}
+html[data-ui="new"] .drop-tag{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;background:color-mix(in srgb,var(--accent) 11%,transparent);color:var(--accent)}
+html[data-ui="new"] .od-ship{background:var(--soft);border-radius:11px;padding:12px 14px;margin:0 0 16px}
+html[data-ui="new"] .od-ship.drop{background:color-mix(in srgb,var(--accent) 6%,var(--panel));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 22%,transparent)}
+html[data-ui="new"] .od-ship-h{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted);margin-bottom:5px}
+html[data-ui="new"] .od-ship address{font-style:normal;display:flex;flex-direction:column;gap:1px;font-size:13.5px;line-height:1.45} html[data-ui="new"] .od-ship address .co{font-weight:600}
 html[data-ui="new"].modal-open body{overflow:hidden}
 }
 /* NEWUI-END */
@@ -648,7 +661,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   const SUPABASE_URL = "https://tavjvbxxqolmryszxxos.supabase.co";
   const SUPABASE_KEY = "sb_publishable_5PF7WX87sLGppM-UUxzAbw_khVd3jLh";
   const PEOPLE = ["Taylor","Brad","Kirk","Glenn","Kim"];
-  const QUICK = ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
+  const QUICK = document.documentElement.getAttribute("data-ui") === "new" ? ["Will ship today","Holding for material","Waiting on approval"] : ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
   const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","PARTIAL SHIPMENT","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
   const STAGE_LABEL = { production: "In production", ready: "Ready to ship", hold: "On hold", order_entry: "Order entry", shipped: "Shipped · not billed", other: "Other" };
   const $ = s => document.querySelector(s);
@@ -663,7 +676,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   function saveDrafts() { try { localStorage.setItem("hotlist.drafts", JSON.stringify(drafts)); } catch {} }
   let groupBy = "location", statusFilter = "all", locFilter = "", search = "";
   let sortKey = "dueDate", sortDir = 1;
-  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null; const dueDrafts = {};
+  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null, locSaving = null, sosLocs = null; const dueDrafts = {}, locDrafts = {};
   let tvTimer = null, pollTimer = null, channel = null;
   try {
     includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || "";
@@ -814,7 +827,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (!meta || !meta.lastUpdated) { txt.textContent = jobs.length ? "Job data loaded" : "Waiting for job data"; dot.className = "dot"; return; }
     const ms = new Date(meta.lastUpdated).getTime(), age = (Date.now() - ms) / 60000;
     const rel = age < 1 ? "just now" : age < 60 ? `${Math.round(age)} min ago` : age < 36 * 60 ? `${Math.round(age / 60)} hr ago` : `${Math.round(age / 1440)} days ago`;
-    txt.textContent = `Data as of ${stamp(ms)} ET (${rel})` + (meta.source ? ` · ${meta.source}` : "");
+    txt.textContent = `Data as of ${stamp(ms)} ET (${rel})` + (meta.source && !NEWUI ? ` · ${meta.source}` : "");
     dot.className = "dot " + (age > 90 ? "stale" : "ok");
   }
   function renderHeader() {
@@ -843,6 +856,8 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (NEWUI && !document.body.classList.contains("tv")) { const x = list[list.length - 1]; return `<span class="note-preview" title="${esc(list.slice().reverse().map(y => `${y.text} (${y.by || ""} ${stamp(y.at)})`).join("\n"))}"><span class="nl">${esc(x.text)}</span>${list.length > 1 ? `<span class="more">+${list.length - 1}</span>` : ""}</span>`; }
     return `<span class="note-preview">${lines.join("")}<span class="tvall">${all}</span></span>`;
   }
+  // A finished job that is past due is still late: in the new look "Ready · 3 days late" reads red, not green
+  const pillCls = c => { const s = c.extra || ""; if (c.cls === "closed") return "closed " + s; if (NEWUI && s === "ready" && c.cls === "late") return "late"; return s && s !== "late" ? s : c.cls; };
   function rowHtml(j, isOpen) {
     const n = notes[j.orderNum] || {}, c = j._c;
     const stageCls = c.extra || ""; // hold / oe / late-on-close override the due-date color
@@ -850,7 +865,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       <td class="stripe"></td>
       <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
       <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${j.details?.short && !NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
-      <td><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span></td>
+      <td><span class="pill ${pillCls(c)}">${esc(c.label)}</span></td>
       <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
       <td class="c-po num">${esc(j.customerPO || "")}</td>
       <td class="c-rep">${esc(j.rep)}</td>
@@ -915,25 +930,43 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (!hit) return `<span class="od-raw">${esc(desc)}</span>`;
     return `${lead.length ? `<div class="od-lead">${esc(lead.join(" "))}</div>` : ""}<dl class="od-specs">${specs.map(s => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`).join("")}</dl>`;
   }
+  // Drop ship = the Drop Ship tick on the sales order in SOS
+  const isDropShip = j => !!j.details?.dropShip;
+  function shipBox(j) { const s = j.details?.ship; if (!s || !(s.company || s.lines?.length || s.cityLine)) return "";
+    const rows = [s.company, s.contact && s.contact !== s.company ? s.contact : "", ...(s.lines || []), s.cityLine, s.country && !/^(us|usa|united states)$/i.test(s.country) ? s.country : "", s.phone].filter(Boolean);
+    return `<div class="od-ship${isDropShip(j) ? " drop" : ""}"><div class="od-ship-h"><span>Ship to</span>${isDropShip(j) ? `<span class="drop-tag">Drop ship</span>` : ""}</div><address>${rows.map((r, i) => `<span${i === 0 ? ' class="co"' : ""}>${esc(r)}</span>`).join("")}</address></div>`; }
   function orderDetails(j) {
     const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
     const qty = v => (Number(v) || 0).toLocaleString("en-US");
-    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", d.shipTo], ["Shipments", (d.shipments || []).join(", ")], ["Quantity short", qtyShort(j)]].filter(f => f[1]);
+    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", NEWUI && d.ship ? "" : d.shipTo], ["Shipments", (d.shipments || []).join(", ")], ["Quantity short", qtyShort(j)]].filter(f => f[1]);
     const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${NEWUI ? specHtml(l.desc) : `<span class="od-raw">${esc(l.desc)}</span>`}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
     return `<div class="field od"><label>Order details · from SOS</label>
       ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
+      ${NEWUI ? shipBox(j) : ""}
       ${lines ? `<table class="od-lines"><thead><tr><th>Item</th><th>Description</th><th class="r">Qty</th><th class="r">Amount</th></tr></thead><tbody>${lines}</tbody></table>` : `<p class="ro-note">No line items on this order.</p>`}
       ${d.message ? `<p class="od-msg"><b>Customer message:</b> ${esc(d.message)}</p>` : ""}${d.comment ? `<p class="od-msg"><b>Comment:</b> ${esc(d.comment)}</p>` : ""}</div>`;
   }
   function detailRow(j, n) {
     return `<tr class="detail" data-for="${esc(j.orderNum)}"><td colspan="14">${detailInner(j, n)}</td></tr>`;
   }
+  const locChoices = j => { const set = new Set((sosLocs || LOC_ORDER).map(x => String(x).toUpperCase()).filter(x => x !== "TESTING" && x !== "CANCELLED")); set.add(j.location); const rank = k => { const i = LOC_ORDER.indexOf(k); return i < 0 ? 99 : i; }; return [...set].sort((a, b) => (rank(a) - rank(b)) || a.localeCompare(b)); };
+  function ctlNew(j, n) {
+    const id = esc(j.orderNum), canEdit = isEditor && !j.closedAt, locTo = locDrafts[j.orderNum] || j.location, dueTo = dueDrafts[j.orderNum] || j.dueDate || "";
+    const legacy = `${n.pinned ? `<div class="legacy"><button type="button" class="btn pin" data-pin aria-pressed="true">Take off hot list</button><p class="pin-help">This job was put back on the hot list by hand. Take it off once the location in SOS is right.</p></div>` : ""}${n.shippedPending ? `<label class="toggle legacy"><input type="checkbox" id="ship_${id}" data-ship checked> Marked "shipped, pending SOS update" (untick to clear)</label>` : ""}`;
+    if (!canEdit) return `<div class="field f-ctl"><label>Update in SOS</label><p class="ro-note">${j.closedAt ? "This order is closed in SOS." : "Only Brad, Glenn, Kim, Kirk and Taylor can change an order's location or due date."}</p>${legacy}</div>`;
+    return `<div class="field f-ctl"><label>Update in SOS</label>
+        <label for="loc_${id}" class="sublbl">Location</label>
+        <div class="due-edit"><select id="loc_${id}" data-loc>${locChoices(j).map(l => `<option value="${esc(l)}"${l === locTo ? " selected" : ""}>${esc(l)}</option>`).join("")}</select><button type="button" class="btn" data-loc-save ${locTo === j.location || locSaving === j.orderNum ? "disabled" : ""}>${locSaving === j.orderNum ? "Saving to SOS…" : "Save to SOS"}</button></div>
+        <label for="due_${id}" class="sublbl">Due date</label>
+        <div class="due-edit"><input type="date" id="due_${id}" data-due value="${esc(dueTo)}"><button type="button" class="btn" data-due-save ${dueTo === j.dueDate || dueSaving === j.orderNum ? "disabled" : ""}>${dueSaving === j.orderNum ? "Saving to SOS…" : "Save to SOS"}</button></div>
+        <p class="pin-help">Both are written to the sales order in SOS and logged with your name.</p>${legacy}</div>`;
+  }
   function detailInner(j, n) {
     const owners = PEOPLE.map(p => `<button type="button" data-owner="${esc(p)}" aria-pressed="${n.owner === p}">${esc(p)}</button>`).join("") + `<button type="button" data-owner="" aria-pressed="${!n.owner}">Nobody</button>`;
     const list = (n.notes || []).slice().reverse().map(x => `<li><span>${esc(x.text)}</span><span class="meta">${esc(x.by || "")} · ${stamp(x.at)}</span></li>`).join("") || `<li class="empty">No notes yet.</li>`;
     const quick = QUICK.map(q => `<button type="button" data-quick="${esc(q)}">${esc(q)}</button>`).join("");
     return `<div class="detail-grid">
-      <div class="field f-ctl"><label>Owner</label><div class="owner-pick">${owners}</div>
+      ${NEWUI ? ctlNew(j, n) : `      <div class="field f-ctl"><label>Owner</label><div class="owner-pick">${owners}</div>
         <label style="margin-top:10px">Flags</label>
         <label class="toggle"><input type="checkbox" id="ship_${esc(j.orderNum)}" data-ship ${n.shippedPending ? "checked" : ""}> Shipped, pending SOS update</label>
         <div style="margin-top:10px"><button type="button" class="btn pin" data-pin aria-pressed="${!!n.pinned}">${n.pinned ? "Take off hot list" : "Put back on hot list"}</button></div>
@@ -942,7 +975,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
         <div class="due-edit"><input type="date" id="due_${esc(j.orderNum)}" data-due value="${esc(dueDrafts[j.orderNum] || j.dueDate || "")}"><button type="button" class="btn" data-due-save ${(dueDrafts[j.orderNum] || j.dueDate) === j.dueDate || dueSaving === j.orderNum ? "disabled" : ""}>${dueSaving === j.orderNum ? "Saving to SOS…" : "Save to SOS"}</button></div>
         <p class="pin-help">Changes the Date Due on the sales order in SOS. Logged with your name.</p>` : ""}
         <p class="ro-note">Ordered ${longDate(j.orderDate)} · due ${longDate(j.dueDate)} · notes are signed <b>${esc(me)}</b>.</p>
-      </div>
+      </div>`}
       <div class="field f-notes"><label>Notes</label><ul class="notes-list">${list}</ul>
         <div class="quick">${quick}</div>
         <form class="add-note" data-add><input type="text" id="note_${esc(j.orderNum)}" value="${esc(drafts[j.orderNum] || "")}" placeholder="Add a note, e.g. holding for foil on item 2" maxlength="300" autocomplete="off"><button type="submit" class="btn primary">Add note</button></form>
@@ -958,7 +991,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const top = modalBody.scrollTop, due = modalBody.querySelector("[data-due]"), dueFocus = due && document.activeElement === due;
     $("#modalHead").innerHTML = `<div class="m-id"><div class="m-eyebrow">Order ${esc(j.orderNum)}${j.isReceipt ? " · Web order" : ""}${j.customerPO ? ` · PO ${esc(j.customerPO)}` : ""}</div>
       <h2 id="modalTitle"><span class="num">${esc(shortNum(j.orderNum))}</span>${esc(j.customer)}</h2>
-      <div class="m-chips"><span class="loc">${esc(j.location)}</span><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span><span class="m-fact">Due <b>${longDate(j.dueDate)}</b></span><span class="m-fact num"><b>${money(j.amount)}</b></span>${j.rep ? `<span class="m-fact">${esc(j.rep)}</span>` : ""}</div></div>
+      <div class="m-chips"><span class="loc">${esc(j.location)}</span><span class="pill ${pillCls(c)}">${esc(c.label)}</span>${isDropShip(j) ? `<span class="drop-tag">Drop ship</span>` : ""}<span class="m-fact">Due <b>${longDate(j.dueDate)}</b></span><span class="m-fact num"><b>${money(j.amount)}</b></span>${j.rep ? `<span class="m-fact">${esc(j.rep)}</span>` : ""}</div></div>
       <button type="button" class="modal-x" data-close aria-label="Close">✕</button>`;
     modalBody.dataset.for = j.orderNum; modalBody.innerHTML = detailInner(j, n);
     modal.hidden = false; document.documentElement.classList.add("modal-open"); modalBody.scrollTop = top;
@@ -983,6 +1016,8 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (document.body.classList.contains("tv")) return;
     const ownerBtn = e.target.closest("[data-owner]");
     if (ownerBtn) { setOwner(ownerBtn.closest("[data-for]").dataset.for, ownerBtn.dataset.owner); return; }
+    const locBtn = e.target.closest("[data-loc-save]");
+    if (locBtn) { saveLoc(locBtn.closest("[data-for]").dataset.for); return; }
     const dueBtn = e.target.closest("[data-due-save]");
     if (dueBtn) { saveDue(dueBtn.closest("[data-for]").dataset.for); return; }
     const pinBtn = e.target.closest("[data-pin]");
@@ -998,6 +1033,24 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   onDetail("input", e => { const inp = e.target.closest("[data-due]"); if (!inp) return; const id = inp.closest("[data-for]").dataset.for, j = [...jobs, ...closedJobs].find(x => x.orderNum === id); if (!j) return;
     if (inp.value && inp.value !== j.dueDate) dueDrafts[id] = inp.value; else delete dueDrafts[id];
     const b = inp.parentElement.querySelector("[data-due-save]"); if (b) b.disabled = !dueDrafts[id]; });
+  async function sosCall(body) {
+    const { data: s } = await sb.auth.getSession(); const tok = s?.session?.access_token; if (!tok) throw new Error("Please sign in again.");
+    const res = await fetch(SUPABASE_URL + "/functions/v1/hotlist-due", { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + tok }, body: JSON.stringify(body) });
+    const out = await res.json().catch(() => ({})); if (!res.ok || !out.ok) throw new Error(out.error || "SOS did not accept the change."); return out;
+  }
+  onDetail("change", e => { const sel = e.target.closest("[data-loc]"); if (!sel) return; const id = sel.closest("[data-for]").dataset.for, j = jobs.find(x => x.orderNum === id); if (!j) return;
+    if (sel.value !== j.location) locDrafts[id] = sel.value; else delete locDrafts[id];
+    const b = sel.parentElement.querySelector("[data-loc-save]"); if (b) b.disabled = !locDrafts[id]; });
+  async function saveLoc(id) {
+    const j = jobs.find(x => x.orderNum === id), to = locDrafts[id]; if (!j || !to || locSaving) return;
+    locSaving = id; renderRows();
+    try {
+      const out = await sosCall({ order_num: id, location: to });
+      j.location = out.location || to; j.stage = j.location === "READY TO SHIP" ? "ready" : (out.stage || j.stage); j.locationSince = new Date().toISOString(); delete locDrafts[id];
+      toast(`${shortNum(id)} moved to ${j.location} in SOS`);
+    } catch (err) { toast("Location not changed. " + (err.message || err)); }
+    locSaving = null; render();
+  }
   async function saveDue(id) {
     const j = jobs.find(x => x.orderNum === id), to = dueDrafts[id]; if (!j || !to || dueSaving) return;
     dueSaving = id; renderRows();
@@ -1250,6 +1303,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
     gate.hidden = true; await resolveName(s);
     try { const { data: ed } = await sb.from("hotlist_editors").select("email").eq("email", (s.user?.email || "").toLowerCase()).maybeSingle(); isEditor = !!ed; } catch { isEditor = false; }
+    if (isEditor && NEWUI && !sosLocs) sosCall({ locations: true }).then(o => { if (Array.isArray(o.locations) && o.locations.length) { sosLocs = o.locations; if (openJob) renderRows(); } }).catch(() => {});
     await loadAll(false); subscribe();
     if (TV_AUTO && !document.body.classList.contains("tv")) enterTV();
   }
