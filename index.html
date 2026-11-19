@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+<script>try{var t=new URLSearchParams(location.search).get("theme")||localStorage.getItem("hl.theme");if(t==="dark"||t==="light")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -25,6 +26,7 @@
   --body:"Barlow","Helvetica Neue",Arial,sans-serif;
   color-scheme:light;
 }
+/* Dark: follows the device unless someone picked a side with the Light/Dark button (saved on that device) */
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
   --bg:#121417; --panel:#1b1f25; --ink:#eef0f3; --muted:#a3abb7; --line:#2d333c; --line-strong:#4b5563;
   --accent:#6ea3e6; --accent-ink:#0d1b2e;
@@ -34,6 +36,15 @@
   --hold:#a98ee0; --hold-bg:#2a2140; --hold-ink:#e3d8fb; --oe:#6fc3cb; --oe-bg:#15313a; --oe-ink:#cdeff2;
   --ready:#6fcf97; --ready-bg:#15321f; --ready-ink:#cdeedb;
   --logo-dark:#eef0f3; --logo-grey:#9aa3b0; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#121417; --panel:#1b1f25; --ink:#eef0f3; --muted:#a3abb7; --line:#2d333c; --line-strong:#4b5563;
+  --accent:#6ea3e6; --accent-ink:#0d1b2e;
+  --late:#f06a70; --late-bg:#3a1a1d; --late-ink:#ffd4d6;
+  --today:#e3a93c; --today-bg:#3a2d12; --today-ink:#ffe3a8;
+  --soon:#b7c3d4; --soon-bg:#242b35; --shipped-bg:#20252c; --group-bg:#242a33;
+  --hold:#a98ee0; --hold-bg:#2a2140; --hold-ink:#e3d8fb; --oe:#6fc3cb; --oe-bg:#15313a; --oe-ink:#cdeff2;
+  --ready:#6fcf97; --ready-bg:#15321f; --ready-ink:#cdeedb;
+  --logo-dark:#eef0f3; --logo-grey:#9aa3b0; color-scheme:dark }
 
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -163,6 +174,8 @@ tr.detail td{background:color-mix(in srgb,var(--accent) 4%,var(--panel));padding
 .quick{display:flex;flex-wrap:wrap;gap:6px}
 .quick button{border:1px dashed var(--line-strong);background:transparent;border-radius:999px;padding:4px 10px;font-size:13px;color:var(--muted)}
 .ro-note{font-size:13px;color:var(--muted)}
+.pin-tag.short{background:var(--today-bg);color:var(--today-ink);border:1px solid var(--today)}
+.due-edit{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px} .due-edit input{background:var(--panel);color:var(--ink);border:1px solid var(--line-strong);border-radius:6px;padding:7px 9px;font:inherit;font-size:14px} .due-edit .btn[disabled]{opacity:.5;cursor:default}
 .od{grid-column:1/-1;order:-1;border-bottom:1px solid var(--line);padding-bottom:14px}
 .od-facts{display:flex;flex-wrap:wrap;gap:6px 22px;margin:6px 0 10px} .od-facts div{display:flex;gap:6px;align-items:baseline;font-size:14px} .od-facts dt{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;font-family:var(--display);font-weight:600} .od-facts dd{margin:0;font-weight:600}
 table.od-lines{width:100%;min-width:0;border-collapse:collapse;font-size:14px;background:var(--panel);border:1px solid var(--line)}
@@ -206,7 +219,7 @@ body.tv td,body.tv th{white-space:nowrap} /* no wrapping on the TV: the fit loop
 body.tv .owner-chip.none{font-size:0} body.tv .owner-chip.none::before{content:"–";font-size:21px} /* TV: unassigned shows as a dash to keep the column narrow */
 body.tv .ct{display:inline-block;max-width:var(--tvct,215px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
 #keepAwake{position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none}
-body.tv .pill{font-size:20px;border-width:2px;padding:3px 6px} body.tv .loc{font-size:18px;font-weight:700;border-width:1.5px;padding:2px 5px} body.tv .pin-tag{font-size:14px}
+body.tv .pill{font-size:20px;border-width:2px;padding:3px 6px} body.tv .loc{font-size:18px;font-weight:700;border-width:1.5px;padding:2px 5px} body.tv .pin-tag{font-size:14px} body.tv .pin-tag.short{display:none}
 body.tv .cust{font-weight:700} body.tv .num{font-weight:700}
 /* TV notes: smaller type, wrapped to two lines in the room the Owner column used to take; who/when is left off so more of the note fits */
 body.tv .note-preview{font-size:17px;font-weight:600;line-height:1.2;width:var(--tvnote,270px);max-width:var(--tvnote,270px);white-space:normal;vertical-align:middle} body.tv .note-preview.empty{width:auto;max-width:none}
@@ -293,6 +306,7 @@ body.tv .tv-exit:hover{opacity:1}
 <div class="bar actions" aria-label="Actions">
   <span class="me" id="meLabel"></span>
   <button type="button" class="btn quiet" id="signOut">Sign out</button>
+  <button type="button" class="btn quiet" id="themeBtn" title="Switch between light and dark. Your choice is remembered on this device.">Dark mode</button>
   <span class="spacer"></span>
   <button type="button" class="btn" id="refreshBtn" title="Pull fresh data from SOS now">Refresh</button>
   <button type="button" class="btn" id="csvBtn" title="Download what is on screen right now (this view, filters, search and sort) as a CSV for Excel">Export CSV</button>
@@ -378,7 +392,7 @@ body.tv .tv-exit:hover{opacity:1}
   const SUPABASE_KEY = "sb_publishable_5PF7WX87sLGppM-UUxzAbw_khVd3jLh";
   const PEOPLE = ["Taylor","Brad","Kirk","Glenn","Kim"];
   const QUICK = ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
-  const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
+  const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","PARTIAL SHIPMENT","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
   const STAGE_LABEL = { production: "In production", ready: "Ready to ship", hold: "On hold", order_entry: "Order entry", shipped: "Shipped · not billed", other: "Other" };
   const $ = s => document.querySelector(s);
   const rowsEl = $("#rows"), emptyEl = $("#empty");
@@ -392,7 +406,7 @@ body.tv .tv-exit:hover{opacity:1}
   function saveDrafts() { try { localStorage.setItem("hotlist.drafts", JSON.stringify(drafts)); } catch {} }
   let groupBy = "location", statusFilter = "all", locFilter = "", search = "";
   let sortKey = "dueDate", sortDir = 1;
-  let me = "", session = null, feedOk = true;
+  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null; const dueDrafts = {};
   let tvTimer = null, pollTimer = null, channel = null;
   try {
     includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || "";
@@ -575,7 +589,7 @@ body.tv .tv-exit:hover{opacity:1}
     return `<tr class="job ${c.cls}${stageCls ? " " + stageCls : ""}${isOpen ? " open" : ""}" data-id="${esc(j.orderNum)}" tabindex="0" aria-expanded="${isOpen}">
       <td class="stripe"></td>
       <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
-      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}</td>
+      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${j.details?.short ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
       <td><span class="pill ${c.cls === "closed" ? "closed " + stageCls : (stageCls && stageCls !== "late" ? stageCls : c.cls)}">${esc(c.label)}</span></td>
       <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
       <td class="c-po num">${esc(j.customerPO || "")}</td>
@@ -620,10 +634,11 @@ body.tv .tv-exit:hover{opacity:1}
     if (tv) requestAnimationFrame(fitTV);
   }
   // Straight from the SOS sales order, so nobody has to open the PDF to see what a job number actually is
+  const qtyShort = j => { const s = j.details?.short; return s ? `${(s.ordered - s.onShipments).toLocaleString("en-US")} of ${s.ordered.toLocaleString("en-US")} ordered is not on a shipment in SOS` : ""; };
   function orderDetails(j) {
     const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
     const qty = v => (Number(v) || 0).toLocaleString("en-US");
-    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", d.shipTo], ["Shipments", (d.shipments || []).join(", ")]].filter(f => f[1]);
+    const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", d.shipTo], ["Shipments", (d.shipments || []).join(", ")], ["Quantity short", qtyShort(j)]].filter(f => f[1]);
     const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${esc(l.desc)}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
     return `<div class="field od"><label>Order details · from SOS</label>
       ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
@@ -640,6 +655,9 @@ body.tv .tv-exit:hover{opacity:1}
         <label class="toggle"><input type="checkbox" id="ship_${esc(j.orderNum)}" data-ship ${n.shippedPending ? "checked" : ""}> Shipped, pending SOS update</label>
         <div style="margin-top:10px"><button type="button" class="btn pin" data-pin aria-pressed="${!!n.pinned}">${n.pinned ? "Take off hot list" : "Put back on hot list"}</button></div>
         <p class="pin-help">${n.pinned ? "This job stays on the hot list and in All open until someone takes it off, whatever SOS says." : "Use this when part of an order shipped but the rest is still being made, so SOS moving it to Ready to Ship or Shipped doesn't drop it off the board."}</p>
+        ${isEditor && !j.closedAt ? `<label style="margin-top:12px" for="due_${esc(j.orderNum)}">Due date</label>
+        <div class="due-edit"><input type="date" id="due_${esc(j.orderNum)}" data-due value="${esc(dueDrafts[j.orderNum] || j.dueDate || "")}"><button type="button" class="btn" data-due-save ${(dueDrafts[j.orderNum] || j.dueDate) === j.dueDate || dueSaving === j.orderNum ? "disabled" : ""}>${dueSaving === j.orderNum ? "Saving to SOS…" : "Save to SOS"}</button></div>
+        <p class="pin-help">Changes the Date Due on the sales order in SOS. Logged with your name.</p>` : ""}
         <p class="ro-note">Ordered ${longDate(j.orderDate)} · due ${longDate(j.dueDate)} · notes are signed <b>${esc(me)}</b>.</p>
       </div>
       <div class="field"><label>Notes</label><ul class="notes-list">${list}</ul>
@@ -654,6 +672,8 @@ body.tv .tv-exit:hover{opacity:1}
     if (document.body.classList.contains("tv")) return;
     const ownerBtn = e.target.closest("[data-owner]");
     if (ownerBtn) { setOwner(ownerBtn.closest("tr.detail").dataset.for, ownerBtn.dataset.owner); return; }
+    const dueBtn = e.target.closest("[data-due-save]");
+    if (dueBtn) { saveDue(dueBtn.closest("tr.detail").dataset.for); return; }
     const pinBtn = e.target.closest("[data-pin]");
     if (pinBtn) { setPinned(pinBtn.closest("tr.detail").dataset.for, pinBtn.getAttribute("aria-pressed") !== "true"); return; }
     const q = e.target.closest("[data-quick]");
@@ -663,6 +683,21 @@ body.tv .tv-exit:hover{opacity:1}
     openJob = openJob === row.dataset.id ? null : row.dataset.id; renderRows();
     if (openJob) { const inp = document.getElementById("note_" + openJob); if (inp && window.innerWidth > 760) inp.focus({ preventScroll: true }); }
   });
+  // A picked-but-unsaved date survives the redraw a sync causes, the same way a half-typed note does
+  rowsEl.addEventListener("input", e => { const inp = e.target.closest("[data-due]"); if (!inp) return; const id = inp.closest("tr.detail").dataset.for, j = [...jobs, ...closedJobs].find(x => x.orderNum === id); if (!j) return;
+    if (inp.value && inp.value !== j.dueDate) dueDrafts[id] = inp.value; else delete dueDrafts[id];
+    const b = inp.parentElement.querySelector("[data-due-save]"); if (b) b.disabled = !dueDrafts[id]; });
+  async function saveDue(id) {
+    const j = jobs.find(x => x.orderNum === id), to = dueDrafts[id]; if (!j || !to || dueSaving) return;
+    dueSaving = id; renderRows();
+    try {
+      const { data: s } = await sb.auth.getSession(); const tok = s?.session?.access_token; if (!tok) throw new Error("Please sign in again.");
+      const res = await fetch(SUPABASE_URL + "/functions/v1/hotlist-due", { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_KEY, Authorization: "Bearer " + tok }, body: JSON.stringify({ order_num: id, due_date: to }) });
+      const out = await res.json().catch(() => ({})); if (!res.ok || !out.ok) throw new Error(out.error || "SOS did not accept the change.");
+      j.dueDate = out.due_date || to; delete dueDrafts[id]; toast(`${shortNum(id)}: due date is now ${md(j.dueDate)} in SOS`);
+    } catch (err) { toast("Due date not changed. " + (err.message || err)); }
+    dueSaving = null; render();
+  }
   rowsEl.addEventListener("keydown", e => { const row = e.target.closest("tr.job"); if (row && e.target === row && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); row.click(); } });
   // Unsent note text lives in `drafts` (and localStorage) the moment it's typed, so a sync, a redraw,
   // or even a closed tab can't lose it. It's cleared only when the note is actually added.
@@ -733,6 +768,10 @@ body.tv .tv-exit:hover{opacity:1}
     btn.disabled = false; btn.textContent = "Refresh"; refreshing = false;
   });
   $("#signOut").addEventListener("click", async () => { await sb.auth.signOut(); location.reload(); });
+  const themeBtn = $("#themeBtn"), isDark = () => { const t = document.documentElement.getAttribute("data-theme"); return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; };
+  const paintTheme = () => { themeBtn.textContent = isDark() ? "Light mode" : "Dark mode"; };
+  themeBtn.addEventListener("click", () => { const next = isDark() ? "light" : "dark"; document.documentElement.setAttribute("data-theme", next); try { localStorage.setItem("hl.theme", next); } catch (e) {} paintTheme(); });
+  paintTheme();
   let toastT; function toast(msg) { let t = $(".toast"); if (!t) { t = document.createElement("div"); t.className = "toast"; document.body.appendChild(t); } t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 2600); }
 
   // ---------- TV mode ----------
@@ -898,7 +937,9 @@ body.tv .tv-exit:hover{opacity:1}
   async function onSession(s) {
     session = s;
     if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
-    gate.hidden = true; await resolveName(s); await loadAll(false); subscribe();
+    gate.hidden = true; await resolveName(s);
+    try { const { data: ed } = await sb.from("hotlist_editors").select("email").eq("email", (s.user?.email || "").toLowerCase()).maybeSingle(); isEditor = !!ed; } catch { isEditor = false; }
+    await loadAll(false); subscribe();
     if (TV_AUTO && !document.body.classList.contains("tv")) enterTV();
   }
   loginForm.addEventListener("submit", async e => {
