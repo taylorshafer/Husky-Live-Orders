@@ -679,7 +679,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   function saveDrafts() { try { localStorage.setItem("hotlist.drafts", JSON.stringify(drafts)); } catch {} }
   let groupBy = "location", statusFilter = "all", locFilter = "", search = "";
   let sortKey = "dueDate", sortDir = 1;
-  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null, locSaving = null, sosLocs = null; const dueDrafts = {}, locDrafts = {};
+  let me = "", session = null, feedOk = true, isEditor = false, dueSaving = null, locSaving = null, sosLocs = null, dieLib = null; const dueDrafts = {}, locDrafts = {};
   let tvTimer = null, pollTimer = null, channel = null;
   try {
     includeSoon = localStorage.getItem("hl.soon") === "1"; ownerFilter = localStorage.getItem("hl.owner") || "";
@@ -867,7 +867,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     return `<tr class="job ${c.cls}${stageCls ? " " + stageCls : ""}${isOpen ? " open" : ""}" data-id="${esc(j.orderNum)}" tabindex="0" aria-expanded="${isOpen}">
       <td class="stripe"></td>
       <td><span class="job-num num">${esc(shortNum(j.orderNum))}<small>${esc(j.orderNum)}${j.isReceipt ? " · WEB" : ""}</small></span></td>
-      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${j.details?.short && !NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
+      <td><span class="loc">${esc(j.location)}</span>${isPinned(j) ? `<span class="pin-tag" title="Put back on the hot list by hand">On list</span>` : ""}${SHOW_QTY_FLAG && j.details?.short && !NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty short</span>` : ""}</td>
       <td><span class="pill ${pillCls(c)}">${esc(c.label)}</span></td>
       <td class="cust"><span class="ct">${esc(j.customer)}</span></td>
       <td class="c-po num">${esc(j.customerPO || "")}</td>
@@ -876,7 +876,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
       <td class="num"><b>${md(j.dueDate)}</b></td>
       <td class="r num">${money(j.amount)}</td>
       <td class="c-own">${n.owner ? `<span class="owner-chip">${esc(n.owner)}</span>` : `<span class="owner-chip none">unassigned</span>`}</td>
-      <td class="c-notes">${j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty mismatch</span>` : ""}${notePreview(n)}</td>
+      <td class="c-notes">${SHOW_QTY_FLAG && j.details?.short && NEWUI ? `<span class="pin-tag short" title="${qtyShort(j)}">Qty mismatch</span>` : ""}${notePreview(n)}</td>
       <td class="print-only"></td>
       <td class="caret">${isOpen ? "▲" : "▼"}</td></tr>`;
   }
@@ -913,7 +913,8 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (tv) requestAnimationFrame(fitTV);
   }
   // Straight from the SOS sales order, so nobody has to open the PDF to see what a job number actually is
-  const qtyShort = j => { const s = j.details?.short; if (!s) return ""; const f = v => Number(v).toLocaleString("en-US"); return NEWUI ? `Sales order says ${f(s.ordered)}, shipments total ${f(s.onShipments)}` : `${f(s.ordered - s.onShipments)} of ${f(s.ordered)} ordered is not on a shipment in SOS`; };
+  const SHOW_QTY_FLAG = false; // parked until replacement orders are marked in SOS; set true to bring the tag and the detail line back
+  const qtyShort = j => { if (!SHOW_QTY_FLAG) return ""; const s = j.details?.short; if (!s) return ""; const f = v => Number(v).toLocaleString("en-US"); return NEWUI ? `Sales order says ${f(s.ordered)}, shipments total ${f(s.onShipments)}` : `${f(s.ordered - s.onShipments)} of ${f(s.ordered)} ordered is not on a shipment in SOS`; };
   // SOS line descriptions are typed as one comma run with arbitrary line breaks, e.g.
   //   "Web, 6, Repeat, 4, w/ perf, White Thermal\nTransfer, No Lamination,\nInk, Blank,\nRolls of 1,600, Cartons of 6,400,"
   // Find the keywords wherever they fall (not line by line, and without splitting numbers like 1,600) and lay the
@@ -954,10 +955,23 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const hash = v => /^#?\s*\d+$/.test(v) ? "#" + v.replace(/^#\s*/, "") : v;
     if (val.rewind) push("Rewind", hash(val.rewind)); if (val.unwind) push("Unwind", hash(val.unwind));
     push("Rolls of", val.rolls); push("Stacks of", val.stacks); push("Cartons of", val.cartons);
-    return { lead, specs };
+    return { lead, specs, web: parseFloat(val.web), repeat: parseFloat((val.repeat || "").split(",")[0]) };
   }
-  function specHtml(desc) {
+  // Which die? SOS has no die field on an item. Two honest sources: the die number typed into the order's Size field
+  // ("2.125 x .875 (ABG 87)"), and the Die Library, matched to the line's Web x Repeat. Library matches are candidates, not a record.
+  const statedDie = j => { const m = /\(\s*((?:ABG|FA|GM)\s*#?\s*\d+)\s*\)/i.exec(sizeOf(j)); return m ? m[1].toUpperCase().replace(/\s*#?\s*(\d+)$/, " $1") : ""; };
+  function dieRow(r, j) {
+    const near = (a, b) => Math.abs(a - b) < 0.006, stated = statedDie(j);
+    const fits = (dieLib || []).filter(d => !d.archived && r.web > 0 && r.repeat > 0 && ((near(+d.width, r.web) && near(+d.height, r.repeat)) || (near(+d.width, r.repeat) && near(+d.height, r.web))));
+    const nm = d => `${d.die_number}${d.shape && !/^rounded rect|^rect/i.test(d.shape) ? " (" + d.shape.toLowerCase() + ")" : ""}`;
+    const one = (j.details?.lines || []).length === 1;
+    if (stated && (one || fits.some(d => d.die_number.toUpperCase() === stated))) return ["Die", `${stated} · from the order's Size field`];
+    if (!fits.length) return null;
+    return ["Die", `${fits.slice(0, 4).map(nm).join(", ")}${fits.length > 4 ? ` +${fits.length - 4} more` : ""} · Die Library ${fits.length === 1 ? "match" : "matches"} for this size`];
+  }
+  function specHtml(desc, j) {
     const r = parseSpec(desc); if (!r) return `<span class="od-raw">${esc(desc)}</span>`;
+    const dr = j ? dieRow(r, j) : null; if (dr) { const at = r.specs.findIndex(s => s[0] === "Ink"); r.specs.splice(at < 0 ? r.specs.length : at, 0, dr); }
     return `${r.lead ? `<div class="od-lead">${esc(r.lead)}</div>` : ""}<dl class="od-specs">${r.specs.map(s => `<div><dt>${esc(s[0])}</dt><dd>${esc(s[1])}</dd></div>`).join("")}</dl>`;
   }
   // Drop ship = the Drop Ship tick on the sales order in SOS
@@ -970,7 +984,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     const d = j.details; if (!d) return `<div class="field od"><label>Order details</label><p class="ro-note">Order details load with the next SOS sync.</p></div>`;
     const qty = v => (Number(v) || 0).toLocaleString("en-US");
     const facts = [["Customer PO", j.customerPO], ["Type", d.cls], ...(d.fields || []).map(f => [f.name, f.value]), ["Ship to", NEWUI && d.ship ? "" : d.shipTo], ["Shipments", (d.shipments || []).join(", ")], [NEWUI ? "Quantity mismatch" : "Quantity short", qtyShort(j)]].filter(f => f[1]);
-    const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${NEWUI ? specHtml(l.desc) : `<span class="od-raw">${esc(l.desc)}</span>`}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
+    const lines = (d.lines || []).map(l => `<tr><td class="od-item"><b>${esc(l.item)}</b>${l.cls ? `<span class="od-cls">${esc(l.cls)}</span>` : ""}</td><td class="od-desc">${NEWUI ? specHtml(l.desc, j) : `<span class="od-raw">${esc(l.desc)}</span>`}</td><td class="r num">${qty(l.qty)}</td><td class="r num">${money(l.amt)}</td></tr>`).join("");
     return `<div class="field od"><label>Order details · from SOS</label>
       ${facts.length ? `<dl class="od-facts">${facts.map(f => `<div><dt>${esc(f[0])}</dt><dd>${esc(f[1])}</dd></div>`).join("")}</dl>` : ""}
       ${NEWUI ? shipBox(j) : ""}
@@ -1334,6 +1348,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
     if (!s) { gate.hidden = false; loginForm.hidden = false; resetForm.hidden = true; $("#email").focus(); return; }
     gate.hidden = true; await resolveName(s);
     try { const { data: ed } = await sb.from("hotlist_editors").select("email").eq("email", (s.user?.email || "").toLowerCase()).maybeSingle(); isEditor = !!ed; } catch { isEditor = false; }
+    if (NEWUI && !dieLib) sb.from("dies").select("die_number,width,height,shape,archived").range(0, 2999).then(({ data }) => { if (Array.isArray(data)) { dieLib = data; if (openJob) renderRows(); } }, () => {});
     if (isEditor && NEWUI && !sosLocs) sosCall({ locations: true }).then(o => { if (Array.isArray(o.locations) && o.locations.length) { sosLocs = o.locations; if (openJob) renderRows(); } }).catch(() => {});
     await loadAll(false); subscribe();
     if (TV_AUTO && !document.body.classList.contains("tv")) enterTV();
