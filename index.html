@@ -573,9 +573,10 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   <button type="button" class="tile late" data-jump="late"><span class="lbl">Overdue</span><span class="big num" id="tLateN">–</span><span class="sub num" id="tLateD">&nbsp;</span></button>
   <button type="button" class="tile today" data-jump="today"><span class="lbl">Due today</span><span class="big num" id="tTodayN">–</span><span class="sub num" id="tTodayD">&nbsp;</span></button>
   <button type="button" class="tile soon" data-jump="soon"><span class="lbl">Next 2 days</span><span class="big num" id="tSoonN">–</span><span class="sub num" id="tSoonD">&nbsp;</span></button>
-  <button type="button" class="tile" data-jump="all"><span class="lbl">All open orders</span><span class="big num" id="tAllN">–</span><span class="sub num" id="tAllD">&nbsp;</span></button>
+  <button type="button" class="tile" data-jump="all"><span class="lbl">In production</span><span class="big num" id="tAllN">–</span><span class="sub num" id="tAllD">&nbsp;</span></button>
   <button type="button" class="tile ready" data-jump="ready" title="Finished and waiting to go out. Click to open the Ready to ship view."><span class="lbl">Ready to ship</span><span class="big num" id="tReadyN">–</span><span class="sub num" id="tReadyD">&nbsp;</span></button>
-  <button type="button" class="tile hold" data-jump="held" title="On hold or still in order entry. Click to open the Held view."><span class="lbl">Held / not released</span><span class="big num" id="tHoldN">–</span><span class="sub num" id="tHoldD">&nbsp;</span></button>
+  <button type="button" class="tile hold" data-jump="held" title="Entered but not released to production yet. Click to open the Held view."><span class="lbl">Order entry</span><span class="big num" id="tOeN">–</span><span class="sub num" id="tOeD">&nbsp;</span></button>
+  <button type="button" class="tile hold" data-jump="held" title="On hold. Click to open the Held view."><span class="lbl">On hold</span><span class="big num" id="tHoldN">–</span><span class="sub num" id="tHoldD">&nbsp;</span></button>
 </section>
 <section class="locstrip" id="locStrip" aria-label="Open orders by location"></section>
 
@@ -685,7 +686,7 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   const SUPABASE_KEY = "sb_publishable_5PF7WX87sLGppM-UUxzAbw_khVd3jLh";
   const PEOPLE = ["Taylor","Brad","Kirk","Glenn","Kim"];
   const QUICK = document.documentElement.getAttribute("data-ui") === "new" ? ["Will ship today","Holding for material","Waiting on approval"] : ["Printing now","Will ship today","Holding for foil","Holding for paper","Waiting on approval","Shipped, pending SOS update"];
-  const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","PARTIAL SHIPMENT","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
+  const LOC_ORDER = ["READY FOR PRESS","ON FA","ON EPSON 1","ON ROTOFLEX","ON ABG","ON LASER","ON FOIL EMBOSS","ON SHEETER","ON KITTING","ON SHRINKWRAP","PARTIAL SHIPMENT","PARTIALLY SHIPPED","READY TO SHIP","SHIPPED","ORDER ENTRY","ON HOLD","ON PRESS HOLD","ON HOLD - PRESS PROOF","SHIPPING HOLD"];
   const STAGE_LABEL = { production: "In production", ready: "Ready to ship", hold: "On hold", order_entry: "Order entry", shipped: "Shipped · not billed", other: "Other" };
   const $ = s => document.querySelector(s);
   const rowsEl = $("#rows"), emptyEl = $("#empty");
@@ -812,21 +813,22 @@ html[data-ui="new"].modal-open body{overflow:hidden}
   // ---------- render ----------
   function renderTotals() {
     // The four production tiles only ever count the floor; the fifth counts what's parked off it.
-    const t = { late: [0, 0], today: [0, 0], soon: [0, 0], all: [0, 0] }; let hold = 0, oe = 0, heldAmt = 0, ready = 0, readyAmt = 0;
+    const t = { late: [0, 0], today: [0, 0], soon: [0, 0], all: [0, 0] }; let hold = 0, oe = 0, heldAmt = 0, oeAmt = 0, ready = 0, readyAmt = 0;
     for (const j of [...jobs, ...closedJobs.filter(isPinned)]) {
       if (j.stage === "production" || isPinned(j)) { const c = classify(j); t.all[0]++; t.all[1] += +j.amount || 0; if (t[c.cls]) { t[c.cls][0]++; t[c.cls][1] += +j.amount || 0; } }
       else if (j.stage === "ready") { ready++; readyAmt += +j.amount || 0; }
-      else if (j.stage === "order_entry") { oe++; heldAmt += +j.amount || 0; }
+      else if (j.stage === "order_entry") { oe++; oeAmt += +j.amount || 0; }
       else if (j.stage !== "shipped") { hold++; heldAmt += +j.amount || 0; }
     }
     $("#tLateN").closest(".tile").classList.toggle("has", t.late[0] > 0); $("#tTodayN").closest(".tile").classList.toggle("has", t.today[0] > 0);
     $("#tLateN").textContent = t.late[0]; $("#tLateD").textContent = tvMoney(t.late[1]);
     $("#tTodayN").textContent = t.today[0]; $("#tTodayD").textContent = tvMoney(t.today[1]);
     $("#tSoonN").textContent = t.soon[0]; $("#tSoonD").textContent = money(t.soon[1]);
-    // Every open order that hasn't shipped: on the floor + ready to ship + on hold + order entry (not just what the board lists)
-    $("#tAllN").textContent = t.all[0] + ready + hold + oe; $("#tAllD").textContent = `${money0(t.all[1] + readyAmt + heldAmt)} open · ${t.all[0]} on the floor`;
+    // In production = on the floor only. Order entry, holds and ready to ship each have their own tile.
+    $("#tAllN").textContent = t.all[0]; $("#tAllD").textContent = `${money0(t.all[1])} on the floor`;
     $("#tReadyN").textContent = ready; $("#tReadyD").textContent = money(readyAmt);
-    $("#tHoldN").textContent = hold + oe; $("#tHoldD").textContent = `${hold} on hold · ${oe} order entry · ${money0(heldAmt)}`;
+    $("#tOeN").textContent = oe; $("#tOeD").textContent = money(oeAmt);
+    $("#tHoldN").textContent = hold; $("#tHoldD").textContent = money(heldAmt);
     // Per-location recap (TV): every open order that hasn't shipped, by where it sits; all holds roll into one tile
     const by = new Map();
     for (const j of jobs) {
